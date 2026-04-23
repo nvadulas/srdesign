@@ -1,0 +1,14 @@
+[project]
+name = "seniordesign"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "adafruit-circuitpython-vl53l1x>=1.2.8",
+    "board>=1.0",
+    "pillow>=12.2.0",
+    "pygame>=2.6.1",
+    "pymupdf>=1.27.2.2",
+    "rpi-gpio>=0.7.1",
+]
