@@ -7,17 +7,23 @@ VL53L1X_ADDR   = 0x29
 ROI_CENTER_REG = 0x0007
 ROI_SIZE_REG   = 0x0008
 
-ZONES = [
-    ("LEFT",   127),
-    ("CENTER", 199),
-    ("RIGHT",   83),
+ROI_CENTERS = [
+    [191, 175, 159],  # Top Row:    TL,  TC,  TR
+    [127, 199,  83],  # Middle Row: ML,  MC,  MR
+    [ 79,  63,  47],  # Bottom Row: BL,  BC,  BR
 ]
 
-# How much closer the winning zone must be vs the others (mm)
-# Increase this to make it less sensitive
-DOMINANCE_MM  = 100
-CONFIRM_COUNT = 3      # consecutive scans before declaring a side
-NO_READING    = 65535
+ZONE_NAMES = [
+    ["TL", "TC", "TR"],
+    ["ML", "MC", "MR"],
+    ["BL", "BC", "BR"],
+]
+
+BASELINE_SAMPLES = 10    # number of scans to average for baseline
+DELTA_THRESHOLD  = 80    # mm drop from baseline to count as hand present
+DOMINANCE_MM     = 60    # how much more drop the winner needs vs others
+CONFIRM_COUNT    = 3
+NO_READING       = 65535
 
 def set_roi(i2c, center, width=8, height=8):
     size_byte = ((height - 1) << 4) | (width - 1)
@@ -39,29 +45,116 @@ def read_zone(vl53, i2c, center):
     vl53.clear_interrupt()
     return round(dist * 10) if dist is not None else NO_READING
 
-def dominant_zone(readings):
+def scan_grid(vl53, i2c):
+    readings = []
+    for r, row in enumerate(ROI_CENTERS):
+        grid_row = []
+        for c, center in enumerate(row):
+            grid_row.append(read_zone(vl53, i2c, center))
+        readings.append(grid_row)
+    return readings
+
+def calibrate_baseline(vl53, i2c):
     """
-    Returns the zone name that is clearly closer than all others,
-    or None if no zone dominates.
-    
-    A zone dominates if:
-    1. It has a valid reading
-    2. It reads at least DOMINANCE_MM closer than every other valid zone
+    Scan the grid several times with NO hand present and average
+    the results. This becomes our reference — any reading that drops
+    significantly below baseline means a hand is blocking that zone.
     """
-    valid = {name: val for name, val in readings.items() if val != NO_READING}
-    if not valid:
+    print("--- Calibrating baseline (keep hand away) ---")
+    totals  = [[0.0] * 3 for _ in range(3)]
+    counts  = [[0]   * 3 for _ in range(3)]
+
+    for i in range(BASELINE_SAMPLES):
+        print(f"  Sample {i+1}/{BASELINE_SAMPLES}...")
+        grid = scan_grid(vl53, i2c)
+        for r in range(3):
+            for c in range(3):
+                if grid[r][c] != NO_READING:
+                    totals[r][c] += grid[r][c]
+                    counts[r][c] += 1
+
+    baseline = []
+    for r in range(3):
+        row = []
+        for c in range(3):
+            if counts[r][c] > 0:
+                row.append(totals[r][c] / counts[r][c])
+            else:
+                row.append(NO_READING)
+        baseline.append(row)
+
+    print("\nBaseline (mm):")
+    for r in range(3):
+        row_str = ""
+        for c in range(3):
+            label = ZONE_NAMES[r][c]
+            v = baseline[r][c]
+            cell = "----" if v == NO_READING else f"{v:.0f}"
+            row_str += f"{label}:{cell:<7}"
+        print(row_str)
+    print()
+    return baseline
+
+def compute_deltas(readings, baseline):
+    """
+    Compute how much each zone dropped from baseline.
+    A large positive delta means a hand is closer than the baseline object.
+    """
+    deltas = []
+    for r in range(3):
+        row = []
+        for c in range(3):
+            b = baseline[r][c]
+            v = readings[r][c]
+            if b == NO_READING or v == NO_READING:
+                row.append(0)
+            else:
+                # Positive delta = hand is closer than baseline
+                row.append(max(0, b - v))
+        deltas.append(row)
+    return deltas
+
+def dominant_zone(deltas):
+    """
+    Find zone with the largest delta that also beats all others by DOMINANCE_MM.
+    """
+    # Flatten
+    flat = {}
+    for r in range(3):
+        for c in range(3):
+            d = deltas[r][c]
+            if d >= DELTA_THRESHOLD:
+                flat[(r, c)] = d
+
+    if not flat:
         return None
 
-    # Find the closest zone
-    winner = min(valid, key=valid.get)
-    winner_val = valid[winner]
+    winner = max(flat, key=flat.get)
+    winner_delta = flat[winner]
 
-    # Check it beats every other zone by DOMINANCE_MM
-    others = {n: v for n, v in valid.items() if n != winner}
-    if all(winner_val < v - DOMINANCE_MM for v in others.values()):
+    others = {k: v for k, v in flat.items() if k != winner}
+    if all(winner_delta > v + DOMINANCE_MM for v in others.values()):
         return winner
 
-    return None  # no clear winner
+    # If no single dominant zone, return None
+    return None
+
+def print_grid(readings, deltas, confirmed_zone):
+    print("---- 3x3 Grid (mm) | delta ----")
+    for r in range(3):
+        row_str = ""
+        for c in range(3):
+            v     = readings[r][c]
+            d     = deltas[r][c]
+            label = ZONE_NAMES[r][c]
+            marker = "*" if confirmed_zone == (r, c) else " "
+            if v == NO_READING:
+                cell = "----      "
+            else:
+                cell = f"{v}(Δ{d:+.0f}){marker}"
+            row_str += f"{label}:{cell:<14}"
+        print(row_str)
+    print()
 
 def main():
     i2c  = board.I2C()
@@ -70,43 +163,44 @@ def main():
     vl53.timing_budget = 100
     vl53.start_ranging()
 
-    confirm_streak = {"LEFT": 0, "CENTER": 0, "RIGHT": 0}
+    # Calibrate baseline first
+    baseline = calibrate_baseline(vl53, i2c)
+
+    streaks        = [[0] * 3 for _ in range(3)]
+    confirmed_zone = None
     last_declared  = None
 
-    print("--- Dominant Zone Detection ---")
-    print(f"Dominance margin: {DOMINANCE_MM}mm | Confirm: {CONFIRM_COUNT} scans\n")
+    print("--- 3x3 Delta Detection ---")
+    print(f"Delta threshold: {DELTA_THRESHOLD}mm | "
+          f"Dominance: {DOMINANCE_MM}mm | Confirm: {CONFIRM_COUNT}\n")
 
     while True:
-        readings = {}
-        for name, center in ZONES:
-            readings[name] = read_zone(vl53, i2c, center)
+        readings = scan_grid(vl53, i2c)
+        deltas   = compute_deltas(readings, baseline)
+        winner   = dominant_zone(deltas)
 
-        # Print raw readings
-        row = ""
-        for name, _ in ZONES:
-            v = readings[name]
-            cell = "----" if v == NO_READING else f"{v:4d}"
-            row += f"{name}:{cell}  "
-        print(row)
+        # Update streaks
+        for r in range(3):
+            for c in range(3):
+                if winner == (r, c):
+                    streaks[r][c] += 1
+                else:
+                    streaks[r][c] = 0
 
-        # Find dominant zone
-        winner = dominant_zone(readings)
+        # Confirm zone
+        confirmed_zone = None
+        for r in range(3):
+            for c in range(3):
+                if streaks[r][c] >= CONFIRM_COUNT:
+                    confirmed_zone = (r, c)
 
-        # Update confirmation streaks
-        for name in confirm_streak:
-            if name == winner:
-                confirm_streak[name] += 1
-            else:
-                confirm_streak[name] = 0
+        print_grid(readings, deltas, confirmed_zone)
 
-        # Declare detection only after CONFIRM_COUNT consecutive wins
-        for name in confirm_streak:
-            if confirm_streak[name] >= CONFIRM_COUNT and last_declared != name:
-                print(f"  >>> HAND ON {name}")
-                last_declared = name
-
-        # Reset declared side when no winner
-        if winner is None:
+        if confirmed_zone and confirmed_zone != last_declared:
+            r, c = confirmed_zone
+            print(f"  >>> HAND AT {ZONE_NAMES[r][c]}\n")
+            last_declared = confirmed_zone
+        elif confirmed_zone is None:
             last_declared = None
 
 if __name__ == "__main__":
