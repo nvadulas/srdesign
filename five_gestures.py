@@ -19,7 +19,7 @@ RESET   = "\033[0m"
 # ── Tuning ────────────────────────────────────────────────────────────────────
 PRESENT_MM    = 300
 DOMINANCE_MM  = 40
-SWIPE_TIMEOUT = 0.3
+SWIPE_TIMEOUT = 0.5
 HOLD_TIME     = 5.0
 NO_READING    = 65535
 
