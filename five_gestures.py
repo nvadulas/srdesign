@@ -17,11 +17,12 @@ MAGENTA = "\033[95m"
 RESET   = "\033[0m"
 
 # ── Tuning ────────────────────────────────────────────────────────────────────
-PRESENT_MM    = 300
-DOMINANCE_MM  = 40
-SWIPE_TIMEOUT = 1.5
-HOLD_TIME     = 3.0
-NO_READING    = 65535
+PRESENT_MM       = 300
+DOMINANCE_MM     = 40
+SWIPE_TIMEOUT    = 1.5
+HOLD_TIME        = 3.0
+GESTURE_COOLDOWN = 5.0
+NO_READING       = 65535
 
 
 def make_xshut(pin):
@@ -88,27 +89,35 @@ def fmt(v):
     return f"{v:4d}mm" if v != NO_READING else "  --  "
 
 
+def fire(msg, color, now):
+    print(f"\n  {color}{msg}{RESET}\n")
+    return now
+
+
 def main():
     print("Initialising sensors...")
     sensor_left, sensor_right = init_sensors()
     print("Both sensors ready.\n")
 
-    swipe_stage      = 0
-    swipe_dir        = None
-    swipe_start_time = 0
+    swipe_stage       = 0
+    swipe_dir         = None
+    swipe_start_time  = 0
+    last_gesture_time = 0
 
-    # Hold tracking — when each sensor first became present
+    left_was_absent  = True
+    right_was_absent = True
+
     hold_left_start  = None
     hold_right_start = None
     hold_both_start  = None
-
-    # Prevent repeated firing until hand is removed
     hold_left_fired  = False
     hold_right_fired = False
     hold_both_fired  = False
 
     print("--- Gesture Detection (Left↔Right Swipe + Hold) ---")
-    print(f"Dominance margin: {DOMINANCE_MM}mm  |  Hold time: {HOLD_TIME}s\n")
+    print(f"Dominance margin: {DOMINANCE_MM}mm  |  "
+          f"Hold time: {HOLD_TIME}s  |  "
+          f"Cooldown: {GESTURE_COOLDOWN}s\n")
 
     while True:
         left  = read_one(sensor_left)
@@ -116,60 +125,39 @@ def main():
 
         left_present  = left  != NO_READING and left  < PRESENT_MM
         right_present = right != NO_READING and right < PRESENT_MM
+        both_present  = left_present and right_present
 
-        print(f"LEFT:{fmt(left)}  RIGHT:{fmt(right)}  [stage {swipe_stage} dir={swipe_dir}]")
+        now      = time.monotonic()
+        cooldown = (now - last_gesture_time) < GESTURE_COOLDOWN
+        swiping  = swipe_stage == 1
 
-        now = time.monotonic()
+        print(f"LEFT:{fmt(left)}  RIGHT:{fmt(right)}  "
+              f"[stage {swipe_stage} dir={swipe_dir} "
+              f"cooldown={'yes' if cooldown else 'no'}]")
 
-        # ── Hold tracking ─────────────────────────────────────────────────────
+        # ── Reset swipe if both hands leave ───────────────────────────────────
+        if not left_present and not right_present:
+            swipe_stage = 0
+            swipe_dir   = None
 
-        # Both held
-        if left_present and right_present:
-            if hold_both_start is None:
-                hold_both_start = now
-            if not hold_both_fired and now - hold_both_start >= HOLD_TIME:
-                print(f"\n  {MAGENTA}✋ HOLD DETECTED: Both sensors! ✋{RESET}\n")
-                hold_both_fired = True
-        else:
-            hold_both_start = None
-            hold_both_fired = False
-
-        # Left only held
-        if left_present and not right_present:
-            if hold_left_start is None:
-                hold_left_start = now
-            if not hold_left_fired and now - hold_left_start >= HOLD_TIME:
-                print(f"\n  {YELLOW}✋ HOLD DETECTED: Left sensor! ✋{RESET}\n")
-                hold_left_fired = True
-        else:
-            hold_left_start = None
-            hold_left_fired = False
-
-        # Right only held
-        if right_present and not left_present:
-            if hold_right_start is None:
-                hold_right_start = now
-            if not hold_right_fired and now - hold_right_start >= HOLD_TIME:
-                print(f"\n  {BLUE}✋ HOLD DETECTED: Right sensor! ✋{RESET}\n")
-                hold_right_fired = True
-        else:
-            hold_right_start = None
-            hold_right_fired = False
-
-        # ── Swipe detection ───────────────────────────────────────────────────
-
+        # ── SWIPE — always runs, highest priority ─────────────────────────────
         if swipe_stage == 0:
-            if left_present and (not right_present or left < right - DOMINANCE_MM):
-                swipe_stage      = 1
-                swipe_dir        = "LR"
-                swipe_start_time = now
-                print(f"  >> Stage 1: LEFT dominant — watching for RIGHT (L={fmt(left)} R={fmt(right)})")
+            if not cooldown:
+                if (left_present and left_was_absent and
+                        (not right_present or left < right - DOMINANCE_MM)):
+                    swipe_stage      = 1
+                    swipe_dir        = "LR"
+                    swipe_start_time = now
+                    print(f"  >> Stage 1: LEFT entered — watching for RIGHT "
+                          f"(L={fmt(left)} R={fmt(right)})")
 
-            elif right_present and (not left_present or right < left - DOMINANCE_MM):
-                swipe_stage      = 1
-                swipe_dir        = "RL"
-                swipe_start_time = now
-                print(f"  >> Stage 1: RIGHT dominant — watching for LEFT (L={fmt(left)} R={fmt(right)})")
+                elif (right_present and right_was_absent and
+                        (not left_present or right < left - DOMINANCE_MM)):
+                    swipe_stage      = 1
+                    swipe_dir        = "RL"
+                    swipe_start_time = now
+                    print(f"  >> Stage 1: RIGHT entered — watching for LEFT "
+                          f"(L={fmt(left)} R={fmt(right)})")
 
         elif swipe_stage == 1:
             if now - swipe_start_time > SWIPE_TIMEOUT:
@@ -179,15 +167,67 @@ def main():
 
             elif swipe_dir == "LR":
                 if right_present and (not left_present or right < left - DOMINANCE_MM):
-                    print(f"\n  {GREEN}✨ SWIPE DETECTED: Left to Right! ✨{RESET}\n")
+                    last_gesture_time = fire(
+                        "✨ SWIPE DETECTED: Left to Right! ✨",
+                        GREEN, now)
                     swipe_stage = 0
                     swipe_dir   = None
 
             elif swipe_dir == "RL":
                 if left_present and (not right_present or left < right - DOMINANCE_MM):
-                    print(f"\n  {RED}✨ SWIPE DETECTED: Right to Left! ✨{RESET}\n")
+                    last_gesture_time = fire(
+                        "✨ SWIPE DETECTED: Right to Left! ✨",
+                        RED, now)
                     swipe_stage = 0
                     swipe_dir   = None
+
+        # ── Block holds during swipe or cooldown ──────────────────────────────
+        if swiping or cooldown:
+            left_was_absent  = not left_present
+            right_was_absent = not right_present
+            time.sleep(0.02)
+            continue
+
+        # ── Hold tracking ─────────────────────────────────────────────────────
+        if both_present:
+            if hold_both_start is None:
+                hold_both_start = now
+            if not hold_both_fired and now - hold_both_start >= HOLD_TIME:
+                last_gesture_time = fire(
+                    "✋ HOLD DETECTED: Both sensors! ✋",
+                    MAGENTA, now)
+                hold_both_fired = True
+        else:
+            hold_both_start = None
+            hold_both_fired = False
+
+        if left_present and not right_present:
+            if hold_left_start is None:
+                hold_left_start = now
+            if not hold_left_fired and now - hold_left_start >= HOLD_TIME:
+                last_gesture_time = fire(
+                    "✋ HOLD DETECTED: Left sensor! ✋",
+                    YELLOW, now)
+                hold_left_fired = True
+        else:
+            hold_left_start = None
+            hold_left_fired = False
+
+        if right_present and not left_present:
+            if hold_right_start is None:
+                hold_right_start = now
+            if not hold_right_fired and now - hold_right_start >= HOLD_TIME:
+                last_gesture_time = fire(
+                    "✋ HOLD DETECTED: Right sensor! ✋",
+                    BLUE, now)
+                hold_right_fired = True
+        else:
+            hold_right_start = None
+            hold_right_fired = False
+
+        # ── Update entry tracking ─────────────────────────────────────────────
+        left_was_absent  = not left_present
+        right_was_absent = not right_present
 
         time.sleep(0.02)
 
