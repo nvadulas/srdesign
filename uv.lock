@@ -254,6 +254,7 @@ name = "seniordesign"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "adafruit-blinka" },
     { name = "adafruit-circuitpython-vl53l1x" },
     { name = "board" },
     { name = "pillow" },
@@ -264,6 +265,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "adafruit-blinka", specifier = ">=9.1.0" },
     { name = "adafruit-circuitpython-vl53l1x", specifier = ">=1.2.8" },
     { name = "board", specifier = ">=1.0" },
     { name = "pillow", specifier = ">=12.2.0" },

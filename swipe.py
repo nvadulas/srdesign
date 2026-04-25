@@ -8,16 +8,16 @@ ROI_CENTER_REG = 0x0007
 ROI_SIZE_REG   = 0x0008
 
 ZONES = [
-    ("LEFT",   127),
+    ("LEFT",   132),
     ("CENTER", 199),
-    ("RIGHT",   83),
+    ("RIGHT",   88),
 ]
 
 ROI_W         = 8
 ROI_H         = 8
 PRESENT_MM    = 300
-DOMINANCE_MM  = 40    # LEFT must be this much closer than RIGHT to start swipe
-SWIPE_TIMEOUT = 1.5
+DOMINANCE_MM  = 60    # LEFT must be this much closer than RIGHT to start swipe
+SWIPE_TIMEOUT = 3
 NO_READING    = 65535
 
 def set_roi(i2c, center, width=ROI_W, height=ROI_H):
@@ -28,7 +28,7 @@ def set_roi(i2c, center, width=ROI_W, height=ROI_H):
 def read_zone(vl53, i2c, center):
     set_roi(i2c, center)
     vl53.clear_interrupt()
-    time.sleep(0.08)
+    time.sleep(0.05)
 
     timeout = time.monotonic() + 0.5
     while not vl53.data_ready:
@@ -44,12 +44,12 @@ def main():
     i2c  = board.I2C()
     vl53 = adafruit_vl53l1x.VL53L1X(i2c)
     vl53.distance_mode = 1
-    vl53.timing_budget = 100
+    vl53.timing_budget = 50
     vl53.start_ranging()
 
     swipe_stage      = 0
     swipe_start_time = 0
-
+    status_msg = ""
     print("--- Left to Right Swipe Detection ---")
     print(f"Dominance margin: {DOMINANCE_MM}mm\n")
 
@@ -62,13 +62,9 @@ def main():
         center = readings["CENTER"]
         right  = readings["RIGHT"]
 
-        def fmt(v):
-            return f"{v:4d}mm" if v != NO_READING else "  --  "
-        print(f"LEFT:{fmt(left)}  CENTER:{fmt(center)}  RIGHT:{fmt(right)}  "
-              f"[stage {swipe_stage}]")
-
         now = time.monotonic()
-
+        status_msg = ""
+     
         if swipe_stage == 0:
             # LEFT must be present AND clearly closer than RIGHT
             left_valid  = left  != NO_READING and left  < PRESENT_MM
@@ -80,11 +76,11 @@ def main():
                     swipe_start_time = now
                     print(f"  >> Stage 1: LEFT dominant "
                           f"(L={left} R={right} diff={right-left}mm)")
-            elif left_valid and right == NO_READING:
+           # elif left_valid and right == NO_READING:
                 # Right has no reading at all — left clearly dominant
-                swipe_stage      = 1
-                swipe_start_time = now
-                print(f"  >> Stage 1: LEFT dominant (R=no reading)")
+            #    swipe_stage      = 1
+             #   swipe_start_time = now
+              #  print(f"  >> Stage 1: LEFT dominant (R=no reading)")
 
         elif swipe_stage == 1:
             if now - swipe_start_time > SWIPE_TIMEOUT:
@@ -108,6 +104,12 @@ def main():
                         # Close enough — accept it
                         print("\n  ✨ SWIPE DETECTED: Left to Right! ✨\n")
                         swipe_stage = 0
+
+        def fmt(v):
+           return f"{v:4d}mm" if v != NO_READING else " -- "
+
+        print(f"LEFT:{fmt(left)}  CENTER:{fmt(center)}  RIGHT:{fmt(right)}  "
+              f"[stage {swipe_stage}]  {status_msg}")
 
 if __name__ == "__main__":
     main()

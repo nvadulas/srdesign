@@ -8,9 +8,9 @@ ROI_CENTER_REG = 0x0007
 ROI_SIZE_REG = 0x0008
 
 ROI_CENTERS = [
-   [167, 175, 183],
-   [103, 199, 91],
-   [71, 63, 55],
+   [199, 175, 151],
+   [127, 199, 71],
+   [79, 55, 31],
 ]
 
 ZONE_NAMES = [
@@ -37,7 +37,7 @@ def main():
        for r, row in enumerate(ROI_CENTERS):
           grid_row = []
           for c, center in enumerate(row):
-             set_roi(i2c, center, width=12, height=12)
+             set_roi(i2c, center, width=4, height=4)
              vl53.clear_interrupt()
              time.sleep(0.1)
         

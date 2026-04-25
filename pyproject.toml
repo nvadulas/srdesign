@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "adafruit-blinka>=9.1.0",
     "adafruit-circuitpython-vl53l1x>=1.2.8",
     "board>=1.0",
     "pillow>=12.2.0",

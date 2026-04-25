@@ -11,9 +11,9 @@ ROI_CENTER_REG = 0x0007
 ROI_SIZE_REG   = 0x0008
 
 ROI_CENTERS = [
-    [167, 175, 183],  # Top Row:    TL, TC, TR
-    [103, 199,  91],  # Middle Row: ML, MC, MR
-    [ 71,  63,  55],  # Bottom Row: BL, BC, BR
+    [182, 175, 168],  # Top Row:    TL, TC, TR
+    [118, 199,  105],  # Middle Row: ML, MC, MR
+    [ 73,  63,  52],  # Bottom Row: BL, BC, BR
 ]
 
 ZONE_NAMES = [
@@ -27,7 +27,7 @@ ZONE_NAMES = [
 # ---------------------------------------------------------------------------
 ROI_WIDTH     = 12
 ROI_HEIGHT    = 12
-THRESHOLD_MM  = 250   # hand must be closer than this to count as detected
+THRESHOLD_MM  = 200   # hand must be closer than this to count as detected
 CONFIRM_COUNT = 3     # zone must read consistently for N scans to confirm
 NO_READING    = 65535
 

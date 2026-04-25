@@ -29,7 +29,7 @@ def init_sensors(i2c):
     time.sleep(0.5)
     sensor_left = adafruit_vl53l1x.VL53L1X(i2c)
     sensor_left.distance_mode = 1
-    sensor_left.timing_budget = 50
+    sensor_left.timing_budget = 200
     sensor_left.start_ranging()
     print("Left sensor ready")
 
@@ -40,7 +40,7 @@ def init_sensors(i2c):
     time.sleep(0.1)
     sensor_right = adafruit_vl53l1x.VL53L1X(i2c, address=ADDR_RIGHT)
     sensor_right.distance_mode = 1
-    sensor_right.timing_budget = 50
+    sensor_right.timing_budget = 200
     sensor_right.start_ranging()
     print("Right sensor ready")
 
@@ -48,8 +48,13 @@ def init_sensors(i2c):
 
 def read_sensor(sensor):
     try:
-        if not sensor.data_ready:
-            return NO_READING
+        sensor.stop_ranging()
+        sensor.start_ranging()
+        timeout = time.monotonic() + 0.5
+        while not sensor.data_ready:
+            if time.monotonic() > timeout:
+                return NO_READING
+            time.sleep(0.005)
         dist = sensor.distance
         sensor.clear_interrupt()
         return round(dist * 10) if dist is not None else NO_READING
@@ -78,7 +83,7 @@ def main():
             time.sleep(0.1)
             continue
 
-        time.sleep(0.05)
+        time.sleep(0.1)
 
 if __name__ == "__main__":
     main()

@@ -5,8 +5,8 @@ import digitalio
 import adafruit_vl53l1x
 
 # ── XSHUT pins ────────────────────────────────────────────────────────────────
-XSHUT_LEFT_PIN  = board.D27
-XSHUT_RIGHT_PIN = board.D17
+XSHUT_LEFT_PIN  = board.D17
+XSHUT_RIGHT_PIN = board.D27
 
 # ── Tuning ────────────────────────────────────────────────────────────────────
 PRESENT_MM    = 300
