@@ -4,15 +4,11 @@ import busio
 import digitalio
 import adafruit_vl53l1x
 
-# ── GPIO pins wired to each sensor's XSHUT ──────────────────────────────────
-XSHUT_LEFT_PIN  = board.D17
-XSHUT_RIGHT_PIN = board.D27
+# ── XSHUT pins ────────────────────────────────────────────────────────────────
+XSHUT_LEFT_PIN  = board.D27
+XSHUT_RIGHT_PIN = board.D17
 
-# ── Addresses ────────────────────────────────────────────────────────────────
-ADDR_LEFT  = 0x29   # default — left sensor keeps it
-ADDR_RIGHT = 0x30   # right sensor gets reassigned at boot
-
-# ── Tuning ───────────────────────────────────────────────────────────────────
+# ── Tuning ────────────────────────────────────────────────────────────────────
 PRESENT_MM    = 300
 DOMINANCE_MM  = 40
 SWIPE_TIMEOUT = 1.5
@@ -25,46 +21,64 @@ def make_xshut(pin):
     return x
 
 
-def init_sensors(i2c):
-    """
-    Boot sensors one at a time so we can give the right sensor a new address.
-    Both XSHUT lines must be wired for this to work.
-    """
+def init_sensors():
     xshut_left  = make_xshut(XSHUT_LEFT_PIN)
     xshut_right = make_xshut(XSHUT_RIGHT_PIN)
 
-    # Hold both in reset
+    # Kill both
     xshut_left.value  = False
     xshut_right.value = False
-    time.sleep(0.01)
+    time.sleep(0.5)
 
-    # Bring up LEFT first — it keeps the default address 0x29
+    # Bring up left alone
     xshut_left.value = True
-    time.sleep(0.01)
-    sensor_left = adafruit_vl53l1x.VL53L1X(i2c)          # 0x29
+    time.sleep(0.5)
+    i2c = busio.I2C(board.SCL, board.SDA)
+    sensor_left = adafruit_vl53l1x.VL53L1X(i2c)
+    sensor_left.distance_mode = 1
+    sensor_left.timing_budget = 50
 
-    # Bring up RIGHT and immediately move it to 0x30
+    # Move left to 0x30
+    sensor_left.set_address(0x30)
+    time.sleep(0.5)
+
+    # Deinit and reinit I2C bus completely
+    i2c.deinit()
+    time.sleep(0.5)
+    i2c = busio.I2C(board.SCL, board.SDA)
+
+    # Reconnect to left at new address
+    sensor_left = adafruit_vl53l1x.VL53L1X(i2c, address=0x30)
+    sensor_left.distance_mode = 1
+    sensor_left.timing_budget = 50
+    print("Left sensor ready at 0x30")
+
+    # Now bring up right
     xshut_right.value = True
-    time.sleep(0.01)
-    sensor_right = adafruit_vl53l1x.VL53L1X(i2c)         # still 0x29 for now
-    sensor_right.set_address(ADDR_RIGHT)                  # now 0x30
+    time.sleep(0.5)
+    sensor_right = adafruit_vl53l1x.VL53L1X(i2c)
+    sensor_right.distance_mode = 1
+    sensor_right.timing_budget = 50
+    print("Right sensor ready at 0x29")
 
     return sensor_left, sensor_right
 
 
-def configure(sensor):
-    sensor.distance_mode = 1    # short mode, good up to ~130 cm
-    sensor.timing_budget = 50   # ms — faster than before since no ROI switching
-    sensor.start_ranging()
-
-
-def read_sensor(sensor):
-    """Non-blocking read; returns distance in mm or NO_READING."""
-    if not sensor.data_ready:
+def read_one(sensor):
+    try:
+        sensor.start_ranging()
+        timeout = time.monotonic() + 0.5
+        while not sensor.data_ready:
+            if time.monotonic() > timeout:
+                sensor.stop_ranging()
+                return NO_READING
+            time.sleep(0.005)
+        dist = sensor.distance
+        sensor.clear_interrupt()
+        sensor.stop_ranging()
+        return round(dist * 10) if dist is not None else NO_READING
+    except OSError:
         return NO_READING
-    dist = sensor.distance
-    sensor.clear_interrupt()
-    return round(dist * 10) if dist is not None else NO_READING
 
 
 def fmt(v):
@@ -72,23 +86,19 @@ def fmt(v):
 
 
 def main():
-    i2c = busio.I2C(board.SCL, board.SDA)
-
-    print("Initialising sensors…")
-    sensor_left, sensor_right = init_sensors(i2c)
-    configure(sensor_left)
-    configure(sensor_right)
-    print("Sensors ready.\n")
+    print("Initialising sensors...")
+    sensor_left, sensor_right = init_sensors()
+    print("Both sensors ready.\n")
 
     swipe_stage      = 0
     swipe_start_time = 0
 
-    print("--- Left to Right Swipe Detection (dual sensor) ---")
-    print(f"Dominance margin: {DOMINANCE_MM} mm\n")
+    print("--- Left to Right Swipe Detection ---")
+    print(f"Dominance margin: {DOMINANCE_MM}mm\n")
 
     while True:
-        left  = read_sensor(sensor_left)
-        right = read_sensor(sensor_right)
+        left  = read_one(sensor_left)
+        right = read_one(sensor_right)
 
         print(f"LEFT:{fmt(left)}  RIGHT:{fmt(right)}  [stage {swipe_stage}]")
 
@@ -115,7 +125,7 @@ def main():
                     print("\n  ✨ SWIPE DETECTED: Left to Right! ✨\n")
                     swipe_stage = 0
 
-        time.sleep(0.02)   # ~50 Hz loop; sensors update at their own timing_budget rate
+        time.sleep(0.02)
 
 
 if __name__ == "__main__":
