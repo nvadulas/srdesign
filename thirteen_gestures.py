@@ -32,7 +32,7 @@ HOLD_TIME        = 3.0
 APPROACH_MM      = 120
 RETREAT_MM       = 120
 ZOOM_WINDOW      = 2.0
-GESTURE_COOLDOWN = 0.5
+GESTURE_COOLDOWN = 3.0
 NO_READING       = 65535
 
 
@@ -117,7 +117,7 @@ class SensorState:
             self.delta         = 0
             return
 
-        self.delta = self.baseline - dist   # positive = closer, negative = farther
+        self.delta = self.baseline - dist
 
         if now - self.baseline_time > ZOOM_WINDOW:
             self.reset_baseline(dist, now)
@@ -150,9 +150,13 @@ def main():
     print("Both sensors ready.\n")
 
     # ── Swipe state ───────────────────────────────────────────────────────────
-    swipe_stage      = 0   # 0 = idle, 1 = in progress
+    swipe_stage      = 0
     swipe_dir        = None
     swipe_start_time = 0
+
+    # ── Entry tracking ────────────────────────────────────────────────────────
+    left_was_absent  = True
+    right_was_absent = True
 
     # ── Cooldown ──────────────────────────────────────────────────────────────
     last_gesture_time = 0
@@ -196,7 +200,8 @@ def main():
         swiping  = swipe_stage == 1
 
         print(f"LEFT:{fmt(left)}  RIGHT:{fmt(right)}  "
-              f"[stage {swipe_stage} dir={swipe_dir}]")
+              f"[stage {swipe_stage} dir={swipe_dir} "
+              f"cooldown={'yes' if cooldown else 'no'}]")
 
         # ── Always update sensor states ───────────────────────────────────────
         state_left.update(left   if left_present  else NO_READING, now)
@@ -215,25 +220,27 @@ def main():
             dual_pinch_fired         = False
             dual_spread_fired        = False
         if not left_present and not right_present:
-            # Both hands gone — reset swipe
             swipe_stage = 0
             swipe_dir   = None
 
-        # ── SWIPE — highest priority, always runs ─────────────────────────────
+        # ── SWIPE — highest priority, runs before cooldown check ──────────────
         if swipe_stage == 0:
             if not cooldown:
-                if left_present and (not right_present or left < right - DOMINANCE_MM):
+                # Only trigger if hand just entered the detection zone
+                if (left_present and left_was_absent and
+                        (not right_present or left < right - DOMINANCE_MM)):
                     swipe_stage      = 1
                     swipe_dir        = "LR"
                     swipe_start_time = now
-                    print(f"  >> Stage 1: LEFT dominant — watching for RIGHT "
+                    print(f"  >> Stage 1: LEFT entered — watching for RIGHT "
                           f"(L={fmt(left)} R={fmt(right)})")
 
-                elif right_present and (not left_present or right < left - DOMINANCE_MM):
+                elif (right_present and right_was_absent and
+                        (not left_present or right < left - DOMINANCE_MM)):
                     swipe_stage      = 1
                     swipe_dir        = "RL"
                     swipe_start_time = now
-                    print(f"  >> Stage 1: RIGHT dominant — watching for LEFT "
+                    print(f"  >> Stage 1: RIGHT entered — watching for LEFT "
                           f"(L={fmt(left)} R={fmt(right)})")
 
         elif swipe_stage == 1:
@@ -260,6 +267,8 @@ def main():
 
         # ── All other gestures blocked during swipe or cooldown ───────────────
         if swiping or cooldown:
+            left_was_absent  = not left_present
+            right_was_absent = not right_present
             time.sleep(0.02)
             continue
 
@@ -373,6 +382,10 @@ def main():
         else:
             hold_right_start = None
             hold_right_fired = False
+
+        # ── Update entry tracking at end of every loop ────────────────────────
+        left_was_absent  = not left_present
+        right_was_absent = not right_present
 
         time.sleep(0.02)
 
