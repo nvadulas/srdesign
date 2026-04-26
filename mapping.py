@@ -65,11 +65,11 @@ WIN_H     = 820
 # Use bare filenames if the files sit next to this script, or full paths.
 PLAYLIST = [
     # ("Display Name",  "path/to/file.mp4"),
-    ("Dance",  "/home/agadkari/srdesign/music/dance.mp3"),
-    ("Stomp",  "/home/agadkari/srdesign/music/stomp.mp3"),
-    ("Phonk",  "/home/agadkari/srdesign/music/phonk.mp3"),
-    ("Joyful",  "/home/agadkari/srdesign/music/joyful.mp3"),
-    ("Action",  "/home/agadkari/srdesign/music/action.mp3"),
+    ("Dance",  "/home/agadkari/srdesign/Music/dance.mp3"),
+    ("Stomp",  "/home/agadkari/srdesign/Music/stomp.mp3"),
+    ("Phonk",  "/home/agadkari/srdesign/Music/phonk.mp3"),
+    ("Joyful",  "/home/agadkari/srdesign/Music/joyful.mp3"),
+    ("Action",  "/home/agadkari/srdesign/Music/action.mp3"),
 ]
 
 # ── Sensor / gesture constants ─────────────────────────────────────────────────
