@@ -58,7 +58,7 @@ SENSOR_BORDER_ON  = "#9B59D0"
 
 PLAYER_W  = 380
 PDF_W     = 520
-WIN_H     = 880   # increased from 820 to give more breathing room
+WIN_H     = 880
 
 # ── Hardcoded playlist ─────────────────────────────────────────────────────────
 PLAYLIST = [
@@ -77,6 +77,10 @@ DOMINANCE_MM  = 40
 SWIPE_TIMEOUT = 0.5
 HOLD_TIME     = 3.0
 NO_READING    = 65535
+
+# Volume gesture constants
+VOLUME_STEP             = 5    # percent per gesture tick
+VOLUME_HOLD_REPEAT_SEC  = 0.6  # seconds between repeated volume steps while holding
 
 if SENSORS_AVAILABLE:
     XSHUT_LEFT_PIN  = board.D17
@@ -169,10 +173,11 @@ class MusicPlayer:
         self.zoom_level     = 1.0
         self._pdf_img_ref   = None
 
-        # Gesture feedback state
+        # Volume state (0–100)
+        self._volume        = 50
+
+        # Gesture state
         self._gesture_running = True
-        self._left_dist_var   = tk.StringVar(value="—")
-        self._right_dist_var  = tk.StringVar(value="—")
 
         self._build_ui()
         self._remove_title_bar()
@@ -244,15 +249,25 @@ class MusicPlayer:
 
     # ── Player panel ──────────────────────────────────────────────────────────
     def _build_player(self, parent):
-        # ── Vinyl art ─────────────────────────────────────────────────────────
-        art_frame = tk.Frame(parent, bg=BG, pady=18)
+        # Anchor sensor panel + status to bottom FIRST so they're never pushed off
+        self._build_sensor_panel(parent)
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", side="bottom")
+        self.status_label = tk.Label(
+            parent, text="Ready",
+            font=("Helvetica", 7), bg=SURFACE, fg=TEXT_SEC, anchor="w")
+        self.status_label.pack(fill="x", side="bottom", padx=14, pady=4)
+
+        # ── Top-down content ──────────────────────────────────────────────────
+
+        # Vinyl art
+        art_frame = tk.Frame(parent, bg=BG, pady=16)
         art_frame.pack(fill="x")
         self.art_canvas = tk.Canvas(art_frame, width=160, height=160,
                                     bg=SURFACE, bd=0, highlightthickness=0)
         self.art_canvas.pack()
         self._draw_vinyl(self.art_canvas)
 
-        # ── Track info ────────────────────────────────────────────────────────
+        # Track info
         info_frame = tk.Frame(parent, bg=BG)
         info_frame.pack(fill="x", padx=36)
         self.track_label = tk.Label(info_frame, text="No track selected",
@@ -264,11 +279,8 @@ class MusicPlayer:
                                   font=("Helvetica", 9), bg=BG, fg=TEXT_SEC)
         self.sub_label.pack(pady=(4, 0))
 
-        # ── Playlist (fixed-height reserved block) ────────────────────────────
-        self._build_playlist(parent)
-
-        # ── Divider ───────────────────────────────────────────────────────────
-        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=36, pady=12)
+        # Divider
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=36, pady=10)
 
         # ── Playback controls ─────────────────────────────────────────────────
         ctrl = tk.Frame(parent, bg=BG)
@@ -277,49 +289,44 @@ class MusicPlayer:
         self._make_play_btn(ctrl).pack(side="left", padx=12)
         self._make_icon_btn(ctrl, "⏸", self.pause_music, size=18).pack(side="left", padx=12)
 
-        # ── Volume ────────────────────────────────────────────────────────────
-        vol_frame = tk.Frame(parent, bg=BG, pady=12)
+        # ── Volume row ────────────────────────────────────────────────────────
+        vol_frame = tk.Frame(parent, bg=BG, pady=8)
         vol_frame.pack(fill="x", padx=36)
         tk.Label(vol_frame, text="VOL", font=("Helvetica", 7, "bold"),
                  bg=BG, fg=TEXT_SEC).pack(side="left")
         self.volume_slider = tk.Scale(
             vol_frame, from_=0, to=100, orient="horizontal",
-            command=self.set_volume,
+            command=self._on_volume_slider,
             bg=BG, fg=ACCENT, troughcolor=SLIDER_TR,
             activebackground=BTN_HOVER, highlightthickness=0,
             bd=0, showvalue=False, sliderrelief="flat",
             sliderlength=14, width=4)
-        self.volume_slider.set(50)
+        self.volume_slider.set(self._volume)
         self.volume_slider.pack(side="left", fill="x", expand=True, padx=(10, 0))
+        self._vol_readout = tk.Label(vol_frame, text=f"{self._volume}%",
+                                     font=("Helvetica", 7), bg=BG, fg=TEXT_SEC,
+                                     width=4, anchor="e")
+        self._vol_readout.pack(side="left", padx=(6, 0))
 
-        # ── Sensor panel (bottom) ─────────────────────────────────────────────
-        self._build_sensor_panel(parent)
+        # Divider
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=36, pady=(2, 0))
 
-        # ── Status bar (very bottom) ──────────────────────────────────────────
-        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", side="bottom")
-        self.status_label = tk.Label(
-            parent, text="Ready",
-            font=("Helvetica", 7), bg=SURFACE, fg=TEXT_SEC, anchor="w")
-        self.status_label.pack(fill="x", side="bottom", padx=14, pady=4)
+        # ── Playlist (fixed-height, below controls) ───────────────────────────
+        self._build_playlist(parent)
 
     # ── Playlist ──────────────────────────────────────────────────────────────
     def _build_playlist(self, parent):
-        """
-        Fixed-height container so that expanding/collapsing the dropdown
-        NEVER shifts the playback controls below it.
-        """
-        BODY_H   = 130   # height of the scrollable track list
-        HEADER_H = 34    # height of the toggle header row
-        TOTAL_H  = BODY_H + HEADER_H  # 164 px always reserved
+        """Fixed-height container — expanding/collapsing never moves other widgets."""
+        BODY_H   = 130
+        HEADER_H = 34
+        TOTAL_H  = BODY_H + HEADER_H  # always 164 px
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Outer fixed-height wrapper — children cannot resize it
         outer = tk.Frame(parent, bg=BG, height=TOTAL_H)
         outer.pack(fill="x", padx=20, pady=(8, 0))
-        outer.pack_propagate(False)   # ← KEY FIX: layout never collapses this
+        outer.pack_propagate(False)  # KEY: never resize from children
 
-        # Header toggle button
         hdr = tk.Frame(outer, bg=SURFACE,
                        highlightbackground=BORDER, highlightthickness=1,
                        height=HEADER_H)
@@ -336,21 +343,17 @@ class MusicPlayer:
                               padx=12, pady=7, cursor="hand2")
         toggle_lbl.pack(side="left", fill="x", expand=True)
 
-        count_lbl = tk.Label(hdr, text=f"{len(PLAYLIST)} tracks",
-                             font=("Helvetica", 7), bg=SURFACE, fg=TEXT_SEC,
-                             padx=10)
-        count_lbl.pack(side="right")
+        tk.Label(hdr, text=f"{len(PLAYLIST)} tracks",
+                 font=("Helvetica", 7), bg=SURFACE, fg=TEXT_SEC,
+                 padx=10).pack(side="right")
 
-        # Scrollable body — fixed height, hidden by default
         body = tk.Frame(outer, bg=SURFACE,
                         highlightbackground=BORDER, highlightthickness=1,
                         height=BODY_H)
         body.pack_propagate(False)
         self._playlist_body = body
-        # Note: body is NOT packed yet; _toggle will pack/forget it
 
-        self._list_canvas = tk.Canvas(body, bg=SURFACE, bd=0,
-                                      highlightthickness=0)
+        self._list_canvas = tk.Canvas(body, bg=SURFACE, bd=0, highlightthickness=0)
         self._list_canvas.pack(side="left", fill="both", expand=True)
 
         vsb = tk.Scrollbar(body, orient="vertical",
@@ -369,8 +372,7 @@ class MusicPlayer:
                    lambda e: self._list_canvas.configure(
                        scrollregion=self._list_canvas.bbox("all")))
         self._list_canvas.bind("<MouseWheel>",
-                         lambda e: self._list_canvas.yview_scroll(
-                             -1*(e.delta//120), "units"))
+                         lambda e: self._list_canvas.yview_scroll(-1*(e.delta//120), "units"))
         self._list_canvas.bind("<Button-4>",
                          lambda e: self._list_canvas.yview_scroll(-1, "units"))
         self._list_canvas.bind("<Button-5>",
@@ -395,8 +397,7 @@ class MusicPlayer:
                                 bg=SURFACE, fg=TEXT_PRI, anchor="w")
             name_lbl.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-            sep = tk.Frame(inner, bg=BORDER, height=1)
-            sep.pack(fill="x", padx=10)
+            tk.Frame(inner, bg=BORDER, height=1).pack(fill="x", padx=10)
 
             self._track_row_widgets.append((row, num, name_lbl))
 
@@ -443,8 +444,7 @@ class MusicPlayer:
                 row.config(bg=SURFACE);    num.config(bg=SURFACE,  fg=TEXT_SEC)
                 name_lbl.config(bg=SURFACE, fg=TEXT_PRI)
         if self._track_row_widgets:
-            row_h   = 34
-            total_h = len(self._track_row_widgets) * row_h
+            total_h = len(self._track_row_widgets) * 34
             if total_h > 0:
                 frac = idx / len(self._track_row_widgets)
                 self._list_canvas.yview_moveto(max(0, frac - 0.1))
@@ -470,10 +470,34 @@ class MusicPlayer:
             self._playlist_open = False
         self.play_music()
 
+    # ── Volume helpers ────────────────────────────────────────────────────────
+    def _on_volume_slider(self, value):
+        """Called when the slider is dragged manually."""
+        self._volume = int(value)
+        self._vol_readout.config(text=f"{self._volume}%")
+        if PYGAME_AVAILABLE:
+            mixer.music.set_volume(self._volume / 100)
+
+    def _set_volume(self, value):
+        """Programmatic volume change — clamps to 0–100, updates slider + readout."""
+        self._volume = max(0, min(100, value))
+        self.volume_slider.set(self._volume)
+        self._vol_readout.config(text=f"{self._volume}%")
+        if PYGAME_AVAILABLE:
+            mixer.music.set_volume(self._volume / 100)
+
+    def volume_up(self):
+        self._set_volume(self._volume + VOLUME_STEP)
+        self._set_status(f"Volume: {self._volume}%")
+
+    def volume_down(self):
+        self._set_volume(self._volume - VOLUME_STEP)
+        self._set_status(f"Volume: {self._volume}%")
+
     # ── Sensor status panel ───────────────────────────────────────────────────
     def _build_sensor_panel(self, parent):
         panel = tk.Frame(parent, bg=SURFACE)
-        panel.pack(fill="x", side="bottom", padx=0, pady=0)
+        panel.pack(fill="x", side="bottom")
 
         tk.Frame(panel, bg=BORDER, height=1).pack(fill="x")
 
@@ -481,16 +505,14 @@ class MusicPlayer:
         header.pack(fill="x", padx=16, pady=(10, 6))
         tk.Label(header, text="GESTURE SENSORS",
                  font=("Helvetica", 7, "bold"), bg=SURFACE, fg=TEXT_SEC).pack(side="left")
-        self._sensor_hw_label = tk.Label(
-            header,
-            text="● LIVE" if SENSORS_AVAILABLE else "● DEMO",
-            font=("Helvetica", 7, "bold"),
-            bg=SURFACE,
-            fg="#4ADE80" if SENSORS_AVAILABLE else "#FACC15")
-        self._sensor_hw_label.pack(side="right")
+        tk.Label(header,
+                 text="● LIVE" if SENSORS_AVAILABLE else "● DEMO",
+                 font=("Helvetica", 7, "bold"),
+                 bg=SURFACE,
+                 fg="#4ADE80" if SENSORS_AVAILABLE else "#FACC15").pack(side="right")
 
         boxes_row = tk.Frame(panel, bg=SURFACE)
-        boxes_row.pack(fill="x", padx=16, pady=(0, 8))
+        boxes_row.pack(fill="x", padx=16, pady=(0, 6))
 
         self._left_box,  self._left_label,  self._left_dist  = self._make_sensor_box(boxes_row, "LEFT")
         self._right_box, self._right_label, self._right_dist = self._make_sensor_box(boxes_row, "RIGHT")
@@ -500,14 +522,32 @@ class MusicPlayer:
             text="Waiting for gesture…",
             font=("Helvetica", 8, "bold"),
             bg="#0F0F15", fg=TEXT_SEC,
-            pady=7, anchor="center")
-        self._gesture_strip.pack(fill="x", padx=16, pady=(0, 10))
+            pady=6, anchor="center")
+        self._gesture_strip.pack(fill="x", padx=16, pady=(0, 6))
+
+        # Gesture reference legend
+        legend = tk.Frame(panel, bg=SURFACE)
+        legend.pack(fill="x", padx=16, pady=(0, 8))
+
+        refs = [
+            ("Swipe L→R / R→L", "Open / close playlist"),
+            ("Hold Left",        "Vol ▲   |  Playlist: scroll ↑"),
+            ("Hold Right",       "Vol ▼   |  Playlist: scroll ↓"),
+            ("Hold Both",        "Stop    |  Playlist: confirm"),
+        ]
+        for g, a in refs:
+            row = tk.Frame(legend, bg=SURFACE)
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text=g, font=("Helvetica", 6, "bold"),
+                     bg=SURFACE, fg=ACCENT2, anchor="w", width=22).pack(side="left")
+            tk.Label(row, text=a, font=("Helvetica", 6),
+                     bg=SURFACE, fg=TEXT_SEC, anchor="w").pack(side="left")
 
     def _make_sensor_box(self, parent, label_text):
         box = tk.Frame(parent, bg=SENSOR_OFF,
                        highlightbackground=SENSOR_BORDER_OFF,
                        highlightthickness=1,
-                       width=148, height=72)
+                       width=148, height=68)
         box.pack(side="left", fill="x", expand=True,
                  padx=(0, 6) if label_text == "LEFT" else (6, 0))
         box.pack_propagate(False)
@@ -518,12 +558,10 @@ class MusicPlayer:
         icon = tk.Label(inner, text="○", font=("Helvetica", 16),
                         bg=SENSOR_OFF, fg=TEXT_SEC)
         icon.pack()
-
         lbl = tk.Label(inner, text=label_text,
                        font=("Helvetica", 7, "bold"),
                        bg=SENSOR_OFF, fg=TEXT_SEC)
         lbl.pack()
-
         dist = tk.Label(inner, text="—",
                         font=("Helvetica", 7),
                         bg=SENSOR_OFF, fg=TEXT_SEC)
@@ -553,12 +591,8 @@ class MusicPlayer:
         box = self._left_box if which == "left" else self._right_box
         self._set_sensor_state(box, state)
         self._gesture_strip.config(text=message, fg=ACCENT2)
-        self.root.after(duration_ms, lambda: self._restore_sensor(which))
         self.root.after(duration_ms + 1500,
                         lambda: self._gesture_strip.config(text="Waiting for gesture…", fg=TEXT_SEC))
-
-    def _restore_sensor(self, which):
-        pass  # naturally corrected by next sensor loop tick
 
     def _flash_both(self, state, message, duration_ms=700):
         self._set_sensor_state(self._left_box, state)
@@ -583,6 +617,9 @@ class MusicPlayer:
         hold_right_fired = False
         hold_both_fired  = False
 
+        vol_left_last_repeat  = 0
+        vol_right_last_repeat = 0
+
         while self._gesture_running:
             left  = read_one(sensor_left)
             right = read_one(sensor_right)
@@ -600,41 +637,66 @@ class MusicPlayer:
             self.root.after(0, lambda rp=right_present, dr=dist_r: self._set_sensor_state(
                 self._right_box, "on" if rp else "off", dr))
 
-            # Hold detection
+            # ── Hold both ────────────────────────────────────────────────────
             if left_present and right_present:
                 if hold_both_start is None:
                     hold_both_start = now
                 if not hold_both_fired and now - hold_both_start >= HOLD_TIME:
                     hold_both_fired = True
-                    self.root.after(0, lambda: self._flash_both("hold", "✋  HOLD BOTH — Select / Stop", 800))
+                    self.root.after(0, lambda: self._flash_both(
+                        "hold", "✋  HOLD BOTH — Stop / Confirm", 800))
                     self.root.after(0, self._on_gesture_hold_both)
             else:
                 hold_both_start = None
                 hold_both_fired = False
 
+            # ── Hold left — Vol UP (normal) / scroll up (playlist) ───────────
             if left_present and not right_present:
                 if hold_left_start is None:
-                    hold_left_start = now
+                    hold_left_start      = now
+                    vol_left_last_repeat = now
+
                 if not hold_left_fired and now - hold_left_start >= HOLD_TIME:
-                    hold_left_fired = True
-                    self.root.after(0, lambda: self._flash_gesture("left", "hold", "✋  HOLD LEFT — Scroll Up / Pause", 800))
+                    hold_left_fired      = True
+                    vol_left_last_repeat = now
+                    self.root.after(0, lambda: self._flash_gesture(
+                        "left", "hold",
+                        "✋  HOLD LEFT — Vol ▲  |  Playlist: ↑", 800))
                     self.root.after(0, self._on_gesture_hold_left)
+
+                # While held in normal mode, keep ticking volume up
+                elif hold_left_fired and not self._playlist_open:
+                    if now - vol_left_last_repeat >= VOLUME_HOLD_REPEAT_SEC:
+                        vol_left_last_repeat = now
+                        self.root.after(0, self.volume_up)
             else:
                 hold_left_start = None
                 hold_left_fired = False
 
+            # ── Hold right — Vol DOWN (normal) / scroll down (playlist) ──────
             if right_present and not left_present:
                 if hold_right_start is None:
-                    hold_right_start = now
+                    hold_right_start      = now
+                    vol_right_last_repeat = now
+
                 if not hold_right_fired and now - hold_right_start >= HOLD_TIME:
-                    hold_right_fired = True
-                    self.root.after(0, lambda: self._flash_gesture("right", "hold", "✋  HOLD RIGHT — Scroll Down / Pause", 800))
+                    hold_right_fired      = True
+                    vol_right_last_repeat = now
+                    self.root.after(0, lambda: self._flash_gesture(
+                        "right", "hold",
+                        "✋  HOLD RIGHT — Vol ▼  |  Playlist: ↓", 800))
                     self.root.after(0, self._on_gesture_hold_right)
+
+                # While held in normal mode, keep ticking volume down
+                elif hold_right_fired and not self._playlist_open:
+                    if now - vol_right_last_repeat >= VOLUME_HOLD_REPEAT_SEC:
+                        vol_right_last_repeat = now
+                        self.root.after(0, self.volume_down)
             else:
                 hold_right_start = None
                 hold_right_fired = False
 
-            # Swipe detection
+            # ── Swipe detection ───────────────────────────────────────────────
             if swipe_stage == 0:
                 if left_present and (not right_present or left < right - DOMINANCE_MM):
                     swipe_stage      = 1
@@ -652,13 +714,15 @@ class MusicPlayer:
                     if right_present and (not left_present or right < left - DOMINANCE_MM):
                         swipe_stage = 0
                         swipe_dir   = None
-                        self.root.after(0, lambda: self._flash_gesture("right", "swipe", "→  SWIPE — Open / Close Playlist"))
+                        self.root.after(0, lambda: self._flash_gesture(
+                            "right", "swipe", "→  SWIPE — Open / Close Playlist"))
                         self.root.after(0, self._on_gesture_swipe_lr)
                 elif swipe_dir == "RL":
                     if left_present and (not right_present or left < right - DOMINANCE_MM):
                         swipe_stage = 0
                         swipe_dir   = None
-                        self.root.after(0, lambda: self._flash_gesture("left", "swipe", "←  SWIPE — Open / Close Playlist"))
+                        self.root.after(0, lambda: self._flash_gesture(
+                            "left", "swipe", "←  SWIPE — Open / Close Playlist"))
                         self.root.after(0, self._on_gesture_swipe_rl)
 
             time.sleep(0.02)
@@ -679,6 +743,19 @@ class MusicPlayer:
             time.sleep(1.2)
 
     # ── Gesture handlers ──────────────────────────────────────────────────────
+    #
+    # NORMAL MODE (playlist closed):
+    #   Swipe LR / RL  → open playlist
+    #   Hold Left      → volume UP  (repeats while held)
+    #   Hold Right     → volume DOWN (repeats while held)
+    #   Hold Both      → stop
+    #
+    # BROWSING MODE (playlist open):
+    #   Hold Left      → scroll highlight UP
+    #   Hold Right     → scroll highlight DOWN
+    #   Hold Both      → confirm / play selected track
+    #   Swipe LR / RL  → close playlist
+
     def _on_gesture_swipe_lr(self):
         if self._playlist_open:
             self._close_playlist()
@@ -695,13 +772,13 @@ class MusicPlayer:
         if self._playlist_open:
             self._playlist_scroll_up()
         else:
-            self.pause_music()
+            self.volume_up()
 
     def _on_gesture_hold_right(self):
         if self._playlist_open:
             self._playlist_scroll_down()
         else:
-            self.pause_music()
+            self.volume_down()
 
     def _on_gesture_hold_both(self):
         if self._playlist_open:
