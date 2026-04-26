@@ -60,6 +60,18 @@ PLAYER_W  = 380
 PDF_W     = 520
 WIN_H     = 820
 
+# ── Hardcoded playlist ─────────────────────────────────────────────────────────
+# Edit display names and file paths/names below.
+# Use bare filenames if the files sit next to this script, or full paths.
+PLAYLIST = [
+    # ("Display Name",  "path/to/file.mp4"),
+    ("Dance",  "/home/agadkari/srdesign/music/dance.mp3"),
+    ("Stomp",  "/home/agadkari/srdesign/music/stomp.mp3"),
+    ("Phonk",  "/home/agadkari/srdesign/music/phonk.mp3"),
+    ("Joyful",  "/home/agadkari/srdesign/music/joyful.mp3"),
+    ("Action",  "/home/agadkari/srdesign/music/action.mp3"),
+]
+
 # ── Sensor / gesture constants ─────────────────────────────────────────────────
 XSHUT_LEFT_PIN  = None   # set below if hardware available
 XSHUT_RIGHT_PIN = None
@@ -251,9 +263,12 @@ class MusicPlayer:
                                     bg=BG, fg=TEXT_PRI, anchor="center",
                                     wraplength=308, justify="center")
         self.track_label.pack()
-        self.sub_label = tk.Label(info_frame, text="Open a file to begin",
+        self.sub_label = tk.Label(info_frame, text="Select a track below",
                                   font=("Helvetica", 9), bg=BG, fg=TEXT_SEC)
         self.sub_label.pack(pady=(4, 0))
+
+        # ── Playlist dropdown ─────────────────────────────────────────────────
+        self._build_playlist(parent)
 
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=36, pady=16)
 
@@ -262,16 +277,6 @@ class MusicPlayer:
         self._make_icon_btn(ctrl, "⏮", self.stop_music,  size=18).pack(side="left", padx=12)
         self._make_play_btn(ctrl).pack(side="left", padx=12)
         self._make_icon_btn(ctrl, "⏸", self.pause_music, size=18).pack(side="left", padx=12)
-
-        open_row = tk.Frame(parent, bg=BG)
-        open_row.pack(pady=(14, 0))
-        open_btn = tk.Label(open_row, text="⊕  Open Music File",
-                            font=("Helvetica", 9, "bold"),
-                            bg=BORDER, fg=TEXT_SEC, padx=16, pady=8, cursor="hand2")
-        open_btn.pack()
-        open_btn.bind("<Button-1>", lambda e: self.open_file())
-        open_btn.bind("<Enter>",    lambda e: open_btn.config(fg=ACCENT2))
-        open_btn.bind("<Leave>",    lambda e: open_btn.config(fg=TEXT_SEC))
 
         vol_frame = tk.Frame(parent, bg=BG, pady=16)
         vol_frame.pack(fill="x", padx=36)
@@ -298,6 +303,132 @@ class MusicPlayer:
 
         # Thin divider above status
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", side="bottom")
+
+
+    # ── Playlist dropdown ─────────────────────────────────────────────────────
+    def _build_playlist(self, parent):
+        """Collapsible scrollable track list shown below track info."""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        container = tk.Frame(parent, bg=BG)
+        container.pack(fill="x", padx=20, pady=(8, 0))
+
+        # Header button — toggles list open/closed
+        hdr = tk.Frame(container, bg=SURFACE,
+                       highlightbackground=BORDER, highlightthickness=1)
+        hdr.pack(fill="x")
+
+        self._playlist_open = False
+        self._playlist_arrow = tk.StringVar(value="▸  PLAYLIST")
+
+        toggle_lbl = tk.Label(hdr, textvariable=self._playlist_arrow,
+                              font=("Helvetica", 8, "bold"),
+                              bg=SURFACE, fg=TEXT_SEC, anchor="w",
+                              padx=12, pady=7, cursor="hand2")
+        toggle_lbl.pack(side="left", fill="x", expand=True)
+
+        count_lbl = tk.Label(hdr, text=f"{len(PLAYLIST)} tracks",
+                             font=("Helvetica", 7), bg=SURFACE, fg=TEXT_SEC,
+                             padx=10)
+        count_lbl.pack(side="right")
+
+        # Dropdown body (hidden initially)
+        body = tk.Frame(container, bg=SURFACE,
+                        highlightbackground=BORDER, highlightthickness=1)
+        self._playlist_body = body
+
+        list_canvas = tk.Canvas(body, bg=SURFACE, bd=0,
+                                highlightthickness=0, height=140)
+        list_canvas.pack(side="left", fill="both", expand=True)
+
+        vsb = tk.Scrollbar(body, orient="vertical",
+                           command=list_canvas.yview,
+                           bg=SURFACE, troughcolor=BG,
+                           activebackground=ACCENT, relief="flat", width=5)
+        vsb.pack(side="right", fill="y")
+        list_canvas.configure(yscrollcommand=vsb.set)
+
+        inner = tk.Frame(list_canvas, bg=SURFACE)
+        cw = list_canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        list_canvas.bind("<Configure>",
+                         lambda e: list_canvas.itemconfig(cw, width=e.width))
+        inner.bind("<Configure>",
+                   lambda e: list_canvas.configure(
+                       scrollregion=list_canvas.bbox("all")))
+        list_canvas.bind("<MouseWheel>",
+                         lambda e: list_canvas.yview_scroll(
+                             -1*(e.delta//120), "units"))
+        list_canvas.bind("<Button-4>",
+                         lambda e: list_canvas.yview_scroll(-1, "units"))
+        list_canvas.bind("<Button-5>",
+                         lambda e: list_canvas.yview_scroll(1, "units"))
+
+        self._track_row_widgets = []
+
+        for idx, (name, fpath) in enumerate(PLAYLIST):
+            # Resolve relative paths against script directory
+            if not os.path.isabs(fpath):
+                fpath = os.path.join(script_dir, fpath)
+
+            row = tk.Frame(inner, bg=SURFACE, cursor="hand2")
+            row.pack(fill="x")
+
+            num = tk.Label(row, text=f"{idx+1:02d}",
+                           font=("Helvetica", 8), bg=SURFACE, fg=TEXT_SEC,
+                           width=3, anchor="e")
+            num.pack(side="left", padx=(10, 4), pady=7)
+
+            name_lbl = tk.Label(row, text=name,
+                                font=("Helvetica", 9),
+                                bg=SURFACE, fg=TEXT_PRI, anchor="w")
+            name_lbl.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+            sep = tk.Frame(inner, bg=BORDER, height=1)
+            sep.pack(fill="x", padx=10)
+
+            self._track_row_widgets.append((row, num, name_lbl))
+
+            def _enter(e, r=row, n=num, nl=name_lbl):
+                r.config(bg="#1E1E28"); n.config(bg="#1E1E28"); nl.config(bg="#1E1E28")
+            def _leave(e, r=row, n=num, nl=name_lbl):
+                r.config(bg=SURFACE); n.config(bg=SURFACE); nl.config(bg=SURFACE)
+            def _select(e, p=fpath, nm=name):
+                self._load_track(p, nm)
+
+            for w in (row, num, name_lbl):
+                w.bind("<Enter>",    _enter)
+                w.bind("<Leave>",    _leave)
+                w.bind("<Button-1>", _select)
+
+        def _toggle(e=None):
+            if self._playlist_open:
+                self._playlist_body.pack_forget()
+                self._playlist_arrow.set("▸  PLAYLIST")
+                self._playlist_open = False
+            else:
+                self._playlist_body.pack(fill="x")
+                self._playlist_arrow.set("▾  PLAYLIST")
+                self._playlist_open = True
+
+        toggle_lbl.bind("<Button-1>", _toggle)
+        toggle_lbl.bind("<Enter>", lambda e: toggle_lbl.config(fg=ACCENT2))
+        toggle_lbl.bind("<Leave>", lambda e: toggle_lbl.config(fg=TEXT_SEC))
+
+    def _load_track(self, path, name):
+        """Select a track from the playlist."""
+        self.current_file = path
+        self.track_label.config(text=name)
+        ext = os.path.splitext(path)[1].upper().lstrip(".")
+        self.sub_label.config(text=f"{ext} file")
+        self.paused = False
+        # Collapse playlist after selection
+        if self._playlist_open:
+            self._playlist_body.pack_forget()
+            self._playlist_arrow.set("▸  PLAYLIST")
+            self._playlist_open = False
+        # Auto-play
+        self.play_music()
 
     # ── Sensor status panel ───────────────────────────────────────────────────
     def _build_sensor_panel(self, parent):
@@ -450,7 +581,7 @@ class MusicPlayer:
                     hold_both_start = now
                 if not hold_both_fired and now - hold_both_start >= HOLD_TIME:
                     hold_both_fired = True
-                    self.root.after(0, lambda: self._flash_both("hold", "✋  HOLD: Both sensors", 800))
+                    self.root.after(0, lambda: self._flash_both("hold", "✋  HOLD BOTH — Stop", 800))
                     self.root.after(0, self._on_gesture_hold_both)
             else:
                 hold_both_start = None
@@ -461,7 +592,7 @@ class MusicPlayer:
                     hold_left_start = now
                 if not hold_left_fired and now - hold_left_start >= HOLD_TIME:
                     hold_left_fired = True
-                    self.root.after(0, lambda: self._flash_gesture("left", "hold", "✋  HOLD: Left sensor", 800))
+                    self.root.after(0, lambda: self._flash_gesture("left", "hold", "✋  HOLD LEFT — Pause / Resume", 800))
                     self.root.after(0, self._on_gesture_hold_left)
             else:
                 hold_left_start = None
@@ -472,7 +603,7 @@ class MusicPlayer:
                     hold_right_start = now
                 if not hold_right_fired and now - hold_right_start >= HOLD_TIME:
                     hold_right_fired = True
-                    self.root.after(0, lambda: self._flash_gesture("right", "hold", "✋  HOLD: Right sensor", 800))
+                    self.root.after(0, lambda: self._flash_gesture("right", "hold", "✋  HOLD RIGHT — Open Playlist", 800))
                     self.root.after(0, self._on_gesture_hold_right)
             else:
                 hold_right_start = None
@@ -497,13 +628,13 @@ class MusicPlayer:
                     if right_present and (not left_present or right < left - DOMINANCE_MM):
                         swipe_stage = 0
                         swipe_dir   = None
-                        self.root.after(0, lambda: self._flash_gesture("right", "swipe", "→  SWIPE: Left to Right"))
+                        self.root.after(0, lambda: self._flash_gesture("right", "swipe", "→  SWIPE LEFT TO RIGHT — Next Track"))
                         self.root.after(0, self._on_gesture_swipe_lr)
                 elif swipe_dir == "RL":
                     if left_present and (not right_present or left < right - DOMINANCE_MM):
                         swipe_stage = 0
                         swipe_dir   = None
-                        self.root.after(0, lambda: self._flash_gesture("left", "swipe", "←  SWIPE: Right to Left"))
+                        self.root.after(0, lambda: self._flash_gesture("left", "swipe", "←  SWIPE RIGHT TO LEFT — Previous Track"))
                         self.root.after(0, self._on_gesture_swipe_rl)
 
             time.sleep(0.02)
@@ -525,26 +656,60 @@ class MusicPlayer:
                 self._right_box, "on" if rp_ else "off", dr_))
             time.sleep(1.2)
 
-    # ── Gesture action handlers (wire your commands here) ─────────────────────
+    # ── Gesture action handlers ───────────────────────────────────────────────
     def _on_gesture_swipe_lr(self):
-        """Left → Right swipe: next PDF page."""
-        self.next_page()
+        """Left -> Right swipe: next track in playlist."""
+        self._playlist_next()
 
     def _on_gesture_swipe_rl(self):
-        """Right → Left swipe: previous PDF page."""
-        self.prev_page()
+        """Right -> Left swipe: previous track in playlist."""
+        self._playlist_prev()
 
     def _on_gesture_hold_left(self):
-        """Left hold: pause/unpause music."""
+        """Left hold: pause / resume music."""
         self.pause_music()
 
     def _on_gesture_hold_right(self):
-        """Right hold: open music file dialog."""
+        """Right hold: open / close the playlist dropdown."""
         self.open_file()
 
     def _on_gesture_hold_both(self):
         """Both hold: stop music."""
         self.stop_music()
+
+    def _playlist_next(self):
+        """Advance to the next track in PLAYLIST and play it."""
+        if not PLAYLIST:
+            return
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        cur = self.current_file or ""
+        idx = 0
+        for i, (name, fpath) in enumerate(PLAYLIST):
+            full = fpath if os.path.isabs(fpath) else os.path.join(script_dir, fpath)
+            if full == cur:
+                idx = i
+                break
+        next_idx = (idx + 1) % len(PLAYLIST)
+        name, fpath = PLAYLIST[next_idx]
+        full = fpath if os.path.isabs(fpath) else os.path.join(script_dir, fpath)
+        self._load_track(full, name)
+
+    def _playlist_prev(self):
+        """Go back to the previous track in PLAYLIST and play it."""
+        if not PLAYLIST:
+            return
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        cur = self.current_file or ""
+        idx = 0
+        for i, (name, fpath) in enumerate(PLAYLIST):
+            full = fpath if os.path.isabs(fpath) else os.path.join(script_dir, fpath)
+            if full == cur:
+                idx = i
+                break
+        prev_idx = (idx - 1) % len(PLAYLIST)
+        name, fpath = PLAYLIST[prev_idx]
+        full = fpath if os.path.isabs(fpath) else os.path.join(script_dir, fpath)
+        self._load_track(full, name)
 
     # ── PDF panel ─────────────────────────────────────────────────────────────
     def _build_pdf_panel(self, parent):
@@ -674,15 +839,11 @@ class MusicPlayer:
 
     # ── Playback ──────────────────────────────────────────────────────────────
     def open_file(self):
-        path = filedialog.askopenfilename(
-            filetypes=[("Audio Files", "*.mp3 *.wav *.ogg")])
-        if path:
-            self.current_file = path
-            name = os.path.splitext(os.path.basename(path))[0]
-            self.track_label.config(text=name)
-            self.sub_label.config(
-                text=os.path.splitext(path)[1].upper().lstrip(".") + " file")
-            self.paused = False
+        """Open the playlist dropdown (used by gesture hold-right)."""
+        if not self._playlist_open:
+            self._playlist_body.pack(fill="x")
+            self._playlist_arrow.set("▾  PLAYLIST")
+            self._playlist_open = True
 
     def play_music(self):
         if not PYGAME_AVAILABLE or not self.current_file:
