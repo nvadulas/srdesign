@@ -49,22 +49,19 @@ PDF_SURF  = "#1A1A24"
 PDF_ACC   = "#9B6FD4"
 
 # Sensor indicator colors
-SENSOR_OFF     = "#1A1A20"   # inactive background
-SENSOR_ON      = "#6F2DA8"   # hand detected — purple glow
-SENSOR_SWIPE   = "#9B59D0"   # brief flash on swipe
-SENSOR_HOLD    = "#C084FC"   # hold — brighter lavender
+SENSOR_OFF        = "#1A1A20"
+SENSOR_ON         = "#6F2DA8"
+SENSOR_SWIPE      = "#9B59D0"
+SENSOR_HOLD       = "#C084FC"
 SENSOR_BORDER_OFF = "#2A2A35"
 SENSOR_BORDER_ON  = "#9B59D0"
 
 PLAYER_W  = 380
 PDF_W     = 520
-WIN_H     = 820
+WIN_H     = 880   # increased from 820 to give more breathing room
 
 # ── Hardcoded playlist ─────────────────────────────────────────────────────────
-# Edit display names and file paths/names below.
-# Use bare filenames if the files sit next to this script, or full paths.
 PLAYLIST = [
-    # ("Display Name",  "path/to/file.mp4"),
     ("Dance",  "/home/agadkari/srdesign/Music/dance.mp3"),
     ("Stomp",  "/home/agadkari/srdesign/Music/stomp.mp3"),
     ("Phonk",  "/home/agadkari/srdesign/Music/phonk.mp3"),
@@ -73,7 +70,7 @@ PLAYLIST = [
 ]
 
 # ── Sensor / gesture constants ─────────────────────────────────────────────────
-XSHUT_LEFT_PIN  = None   # set below if hardware available
+XSHUT_LEFT_PIN  = None
 XSHUT_RIGHT_PIN = None
 PRESENT_MM    = 300
 DOMINANCE_MM  = 40
@@ -172,7 +169,7 @@ class MusicPlayer:
         self.zoom_level     = 1.0
         self._pdf_img_ref   = None
 
-        # Gesture feedback state (thread → main thread via after())
+        # Gesture feedback state
         self._gesture_running = True
         self._left_dist_var   = tk.StringVar(value="—")
         self._right_dist_var  = tk.StringVar(value="—")
@@ -180,12 +177,10 @@ class MusicPlayer:
         self._build_ui()
         self._remove_title_bar()
 
-        # Start sensor thread
         if SENSORS_AVAILABLE:
             t = threading.Thread(target=self._sensor_loop, daemon=True)
             t.start()
         else:
-            # Demo mode: simulate random presence for UI testing
             t = threading.Thread(target=self._demo_sensor_loop, daemon=True)
             t.start()
 
@@ -249,13 +244,15 @@ class MusicPlayer:
 
     # ── Player panel ──────────────────────────────────────────────────────────
     def _build_player(self, parent):
-        art_frame = tk.Frame(parent, bg=BG, pady=22)
+        # ── Vinyl art ─────────────────────────────────────────────────────────
+        art_frame = tk.Frame(parent, bg=BG, pady=18)
         art_frame.pack(fill="x")
         self.art_canvas = tk.Canvas(art_frame, width=160, height=160,
                                     bg=SURFACE, bd=0, highlightthickness=0)
         self.art_canvas.pack()
         self._draw_vinyl(self.art_canvas)
 
+        # ── Track info ────────────────────────────────────────────────────────
         info_frame = tk.Frame(parent, bg=BG)
         info_frame.pack(fill="x", padx=36)
         self.track_label = tk.Label(info_frame, text="No track selected",
@@ -267,18 +264,21 @@ class MusicPlayer:
                                   font=("Helvetica", 9), bg=BG, fg=TEXT_SEC)
         self.sub_label.pack(pady=(4, 0))
 
-        # ── Playlist dropdown ─────────────────────────────────────────────────
+        # ── Playlist (fixed-height reserved block) ────────────────────────────
         self._build_playlist(parent)
 
-        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=36, pady=16)
+        # ── Divider ───────────────────────────────────────────────────────────
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=36, pady=12)
 
+        # ── Playback controls ─────────────────────────────────────────────────
         ctrl = tk.Frame(parent, bg=BG)
         ctrl.pack()
         self._make_icon_btn(ctrl, "⏮", self.stop_music,  size=18).pack(side="left", padx=12)
         self._make_play_btn(ctrl).pack(side="left", padx=12)
         self._make_icon_btn(ctrl, "⏸", self.pause_music, size=18).pack(side="left", padx=12)
 
-        vol_frame = tk.Frame(parent, bg=BG, pady=16)
+        # ── Volume ────────────────────────────────────────────────────────────
+        vol_frame = tk.Frame(parent, bg=BG, pady=12)
         vol_frame.pack(fill="x", padx=36)
         tk.Label(vol_frame, text="VOL", font=("Helvetica", 7, "bold"),
                  bg=BG, fg=TEXT_SEC).pack(side="left")
@@ -292,34 +292,42 @@ class MusicPlayer:
         self.volume_slider.set(50)
         self.volume_slider.pack(side="left", fill="x", expand=True, padx=(10, 0))
 
-        # ── Sensor status panel (at the bottom of the player column) ──────────
+        # ── Sensor panel (bottom) ─────────────────────────────────────────────
         self._build_sensor_panel(parent)
 
-        # Status bar — pushed to very bottom
+        # ── Status bar (very bottom) ──────────────────────────────────────────
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", side="bottom")
         self.status_label = tk.Label(
             parent, text="Ready",
             font=("Helvetica", 7), bg=SURFACE, fg=TEXT_SEC, anchor="w")
         self.status_label.pack(fill="x", side="bottom", padx=14, pady=4)
 
-        # Thin divider above status
-        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", side="bottom")
-
-
-    # ── Playlist dropdown ─────────────────────────────────────────────────────
+    # ── Playlist ──────────────────────────────────────────────────────────────
     def _build_playlist(self, parent):
-        """Collapsible scrollable track list shown below track info."""
+        """
+        Fixed-height container so that expanding/collapsing the dropdown
+        NEVER shifts the playback controls below it.
+        """
+        BODY_H   = 130   # height of the scrollable track list
+        HEADER_H = 34    # height of the toggle header row
+        TOTAL_H  = BODY_H + HEADER_H  # 164 px always reserved
+
         script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        container = tk.Frame(parent, bg=BG)
-        container.pack(fill="x", padx=20, pady=(8, 0))
+        # Outer fixed-height wrapper — children cannot resize it
+        outer = tk.Frame(parent, bg=BG, height=TOTAL_H)
+        outer.pack(fill="x", padx=20, pady=(8, 0))
+        outer.pack_propagate(False)   # ← KEY FIX: layout never collapses this
 
-        # Header button -- toggles list open/closed
-        hdr = tk.Frame(container, bg=SURFACE,
-                       highlightbackground=BORDER, highlightthickness=1)
+        # Header toggle button
+        hdr = tk.Frame(outer, bg=SURFACE,
+                       highlightbackground=BORDER, highlightthickness=1,
+                       height=HEADER_H)
         hdr.pack(fill="x")
+        hdr.pack_propagate(False)
 
-        self._playlist_open = False
-        self._playlist_idx  = 0          # which row is highlighted/selected
+        self._playlist_open  = False
+        self._playlist_idx   = 0
         self._playlist_arrow = tk.StringVar(value="▸  PLAYLIST")
 
         toggle_lbl = tk.Label(hdr, textvariable=self._playlist_arrow,
@@ -333,13 +341,13 @@ class MusicPlayer:
                              padx=10)
         count_lbl.pack(side="right")
 
-        # Dropdown body — fixed height so it never pushes controls off screen
-        BODY_H = 130
-        body = tk.Frame(container, bg=SURFACE,
+        # Scrollable body — fixed height, hidden by default
+        body = tk.Frame(outer, bg=SURFACE,
                         highlightbackground=BORDER, highlightthickness=1,
                         height=BODY_H)
-        body.pack_propagate(False)  # ignore children's size requests
+        body.pack_propagate(False)
         self._playlist_body = body
+        # Note: body is NOT packed yet; _toggle will pack/forget it
 
         self._list_canvas = tk.Canvas(body, bg=SURFACE, bd=0,
                                       highlightthickness=0)
@@ -371,7 +379,6 @@ class MusicPlayer:
         self._track_row_widgets = []
 
         for idx, (name, fpath) in enumerate(PLAYLIST):
-            # Resolve relative paths against script directory
             if not os.path.isabs(fpath):
                 fpath = os.path.join(script_dir, fpath)
 
@@ -397,13 +404,14 @@ class MusicPlayer:
                 if i != self._playlist_idx:
                     r, n, nl = self._track_row_widgets[i]
                     r.config(bg="#1E1E28"); n.config(bg="#1E1E28"); nl.config(bg="#1E1E28")
+
             def _leave(e, i=idx):
                 if i != self._playlist_idx:
                     r, n, nl = self._track_row_widgets[i]
                     r.config(bg=SURFACE); n.config(bg=SURFACE); nl.config(bg=SURFACE)
+
             def _select(e, i=idx):
                 self._set_playlist_highlight(i)
-                r, n, nl = self._track_row_widgets[i]
                 self._load_track_by_idx(i)
 
             for w in (row, num, name_lbl):
@@ -420,7 +428,6 @@ class MusicPlayer:
                 self._playlist_body.pack(fill="x")
                 self._playlist_arrow.set("▾  PLAYLIST")
                 self._playlist_open = True
-                # Highlight whichever track is currently playing
                 self._set_playlist_highlight(self._playlist_idx)
 
         toggle_lbl.bind("<Button-1>", _toggle)
@@ -428,7 +435,6 @@ class MusicPlayer:
         toggle_lbl.bind("<Leave>", lambda e: toggle_lbl.config(fg=TEXT_SEC))
 
     def _set_playlist_highlight(self, idx):
-        """Paint the selected row accent purple, clear all others."""
         for i, (row, num, name_lbl) in enumerate(self._track_row_widgets):
             if i == idx:
                 row.config(bg=ACCENT);     num.config(bg=ACCENT,   fg=ACCENT2)
@@ -436,16 +442,14 @@ class MusicPlayer:
             else:
                 row.config(bg=SURFACE);    num.config(bg=SURFACE,  fg=TEXT_SEC)
                 name_lbl.config(bg=SURFACE, fg=TEXT_PRI)
-        # Scroll canvas so highlighted row is visible
         if self._track_row_widgets:
-            row_h = 34   # approx row height in pixels
+            row_h   = 34
             total_h = len(self._track_row_widgets) * row_h
             if total_h > 0:
                 frac = idx / len(self._track_row_widgets)
                 self._list_canvas.yview_moveto(max(0, frac - 0.1))
 
     def _load_track_by_idx(self, idx):
-        """Load and play the track at position idx in PLAYLIST."""
         if not PLAYLIST or idx < 0 or idx >= len(PLAYLIST):
             return
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -455,8 +459,6 @@ class MusicPlayer:
         self._load_track(full, name, close_playlist=False)
 
     def _load_track(self, path, name, close_playlist=True):
-        """Load a track. close_playlist=True collapses the dropdown (mouse click).
-        Gesture navigation leaves it open so the user can keep swiping."""
         self.current_file = path
         self.track_label.config(text=name)
         ext = os.path.splitext(path)[1].upper().lstrip(".")
@@ -470,16 +472,11 @@ class MusicPlayer:
 
     # ── Sensor status panel ───────────────────────────────────────────────────
     def _build_sensor_panel(self, parent):
-        """Two sensor boxes + gesture event label, flush to the bottom of the player."""
-
-        # Outer container — pushed to bottom, sits above status bar
         panel = tk.Frame(parent, bg=SURFACE)
         panel.pack(fill="x", side="bottom", padx=0, pady=0)
 
-        # Top border line
         tk.Frame(panel, bg=BORDER, height=1).pack(fill="x")
 
-        # Header row
         header = tk.Frame(panel, bg=SURFACE)
         header.pack(fill="x", padx=16, pady=(10, 6))
         tk.Label(header, text="GESTURE SENSORS",
@@ -492,14 +489,12 @@ class MusicPlayer:
             fg="#4ADE80" if SENSORS_AVAILABLE else "#FACC15")
         self._sensor_hw_label.pack(side="right")
 
-        # Two indicator boxes
         boxes_row = tk.Frame(panel, bg=SURFACE)
         boxes_row.pack(fill="x", padx=16, pady=(0, 8))
 
         self._left_box,  self._left_label,  self._left_dist  = self._make_sensor_box(boxes_row, "LEFT")
         self._right_box, self._right_label, self._right_dist = self._make_sensor_box(boxes_row, "RIGHT")
 
-        # Gesture event text strip
         self._gesture_strip = tk.Label(
             panel,
             text="Waiting for gesture…",
@@ -509,12 +504,12 @@ class MusicPlayer:
         self._gesture_strip.pack(fill="x", padx=16, pady=(0, 10))
 
     def _make_sensor_box(self, parent, label_text):
-        """Creates one sensor indicator box. Returns (box_frame, label, dist_label)."""
         box = tk.Frame(parent, bg=SENSOR_OFF,
                        highlightbackground=SENSOR_BORDER_OFF,
                        highlightthickness=1,
                        width=148, height=72)
-        box.pack(side="left", fill="x", expand=True, padx=(0, 6) if label_text == "LEFT" else (6, 0))
+        box.pack(side="left", fill="x", expand=True,
+                 padx=(0, 6) if label_text == "LEFT" else (6, 0))
         box.pack_propagate(False)
 
         inner = tk.Frame(box, bg=SENSOR_OFF)
@@ -534,26 +529,20 @@ class MusicPlayer:
                         bg=SENSOR_OFF, fg=TEXT_SEC)
         dist.pack()
 
-        # Store inner widgets for recoloring
-        box._inner  = inner
-        box._icon   = icon
-        box._name   = lbl
-        box._dist   = dist
+        box._inner = inner
+        box._icon  = icon
+        box._name  = lbl
+        box._dist  = dist
         return box, lbl, dist
 
     def _set_sensor_state(self, box, state, dist_text="—"):
-        """
-        state: 'off' | 'on' | 'swipe' | 'hold'
-        Recolors box + all inner labels.
-        """
         colors = {
-            "off":   (SENSOR_OFF,   SENSOR_BORDER_OFF, TEXT_SEC, "○"),
-            "on":    (SENSOR_ON,    SENSOR_BORDER_ON,  ACCENT2,  "●"),
-            "swipe": (SENSOR_SWIPE, "#C084FC",         ACCENT2,  "↔"),
-            "hold":  (SENSOR_HOLD,  "#E0AAFF",         "#0D0D0F","✋"),
+            "off":   (SENSOR_OFF,   SENSOR_BORDER_OFF, TEXT_SEC,  "○"),
+            "on":    (SENSOR_ON,    SENSOR_BORDER_ON,  ACCENT2,   "●"),
+            "swipe": (SENSOR_SWIPE, "#C084FC",         ACCENT2,   "↔"),
+            "hold":  (SENSOR_HOLD,  "#E0AAFF",         "#0D0D0F", "✋"),
         }
         bg, border, fg, icon_char = colors.get(state, colors["off"])
-
         box.config(bg=bg, highlightbackground=border)
         box._inner.config(bg=bg)
         box._icon.config(bg=bg, fg=fg, text=icon_char)
@@ -561,7 +550,6 @@ class MusicPlayer:
         box._dist.config(bg=bg, fg=fg, text=dist_text)
 
     def _flash_gesture(self, which, state, message, duration_ms=600):
-        """Briefly flash a sensor box to 'swipe' or 'hold', then revert to 'on'/'off'."""
         box = self._left_box if which == "left" else self._right_box
         self._set_sensor_state(box, state)
         self._gesture_strip.config(text=message, fg=ACCENT2)
@@ -570,17 +558,17 @@ class MusicPlayer:
                         lambda: self._gesture_strip.config(text="Waiting for gesture…", fg=TEXT_SEC))
 
     def _restore_sensor(self, which):
-        """After a flash, restore box to whatever the current presence state is."""
-        # This will be naturally corrected by the next sensor update loop tick
+        pass  # naturally corrected by next sensor loop tick
 
     def _flash_both(self, state, message, duration_ms=700):
         self._set_sensor_state(self._left_box, state)
         self._set_sensor_state(self._right_box, state)
-        self._gesture_strip.config(text=message, fg=SENSOR_HOLD if state == "hold" else ACCENT2)
+        self._gesture_strip.config(text=message,
+                                   fg=SENSOR_HOLD if state == "hold" else ACCENT2)
         self.root.after(duration_ms + 2000,
                         lambda: self._gesture_strip.config(text="Waiting for gesture…", fg=TEXT_SEC))
 
-    # ── Sensor loop (runs in background thread) ────────────────────────────────
+    # ── Sensor loop ────────────────────────────────────────────────────────────
     def _sensor_loop(self):
         sensor_left, sensor_right = init_sensors()
 
@@ -607,13 +595,12 @@ class MusicPlayer:
 
             now = time.monotonic()
 
-            # ── Update sensor boxes on the main thread ────────────────────────
             self.root.after(0, lambda lp=left_present, dl=dist_l: self._set_sensor_state(
-                self._left_box,  "on" if lp else "off", dl))
+                self._left_box, "on" if lp else "off", dl))
             self.root.after(0, lambda rp=right_present, dr=dist_r: self._set_sensor_state(
                 self._right_box, "on" if rp else "off", dr))
 
-            # ── Hold detection ────────────────────────────────────────────────
+            # Hold detection
             if left_present and right_present:
                 if hold_both_start is None:
                     hold_both_start = now
@@ -647,7 +634,7 @@ class MusicPlayer:
                 hold_right_start = None
                 hold_right_fired = False
 
-            # ── Swipe detection ───────────────────────────────────────────────
+            # Swipe detection
             if swipe_stage == 0:
                 if left_present and (not right_present or left < right - DOMINANCE_MM):
                     swipe_stage      = 1
@@ -657,7 +644,6 @@ class MusicPlayer:
                     swipe_stage      = 1
                     swipe_dir        = "RL"
                     swipe_start_time = now
-
             elif swipe_stage == 1:
                 if now - swipe_start_time > SWIPE_TIMEOUT:
                     swipe_stage = 0
@@ -677,13 +663,11 @@ class MusicPlayer:
 
             time.sleep(0.02)
 
-    # ── Demo loop (no hardware) ────────────────────────────────────────────────
+    # ── Demo loop ──────────────────────────────────────────────────────────────
     def _demo_sensor_loop(self):
-        """Cycles through fake sensor states so you can see the UI working."""
         import random
-        states = ["none", "left", "right", "both"]
         while self._gesture_running:
-            state = random.choice(states)
+            state = random.choice(["none", "left", "right", "both"])
             lp = state in ("left", "both")
             rp = state in ("right", "both")
             dl = f"{random.randint(80, 280)}mm" if lp else "—"
@@ -694,21 +678,7 @@ class MusicPlayer:
                 self._right_box, "on" if rp_ else "off", dr_))
             time.sleep(1.2)
 
-    # ── Gesture action handlers ───────────────────────────────────────────────
-    #
-    # TWO MODES:
-    #   Normal mode  (playlist closed):
-    #     Swipe LR / RL  -> open playlist
-    #     Hold Left      -> pause / resume
-    #     Hold Right     -> pause / resume  (same as left for convenience)
-    #     Hold Both      -> stop
-    #
-    #   Browsing mode (playlist open):
-    #     Hold Left      -> scroll highlight UP one song
-    #     Hold Right     -> scroll highlight DOWN one song
-    #     Hold Both      -> confirm selection (load & play highlighted track)
-    #     Swipe LR / RL  -> close playlist without changing track
-
+    # ── Gesture handlers ──────────────────────────────────────────────────────
     def _on_gesture_swipe_lr(self):
         if self._playlist_open:
             self._close_playlist()
@@ -735,7 +705,6 @@ class MusicPlayer:
 
     def _on_gesture_hold_both(self):
         if self._playlist_open:
-            # Confirm — load & play the highlighted track
             self._load_track_by_idx(self._playlist_idx)
             self._close_playlist()
         else:
@@ -748,7 +717,6 @@ class MusicPlayer:
             self._playlist_open = False
 
     def _playlist_scroll_up(self):
-        """Move highlight one step up (wraps)."""
         if not PLAYLIST:
             return
         new_idx = (self._playlist_idx - 1) % len(PLAYLIST)
@@ -756,7 +724,6 @@ class MusicPlayer:
         self._set_playlist_highlight(new_idx)
 
     def _playlist_scroll_down(self):
-        """Move highlight one step down (wraps)."""
         if not PLAYLIST:
             return
         new_idx = (self._playlist_idx + 1) % len(PLAYLIST)
@@ -840,9 +807,11 @@ class MusicPlayer:
                 self.pdf_canvas.yview_scroll(-1*(e.delta//120), "units")
         self.pdf_canvas.bind("<MouseWheel>", _on_mousewheel)
         self.pdf_canvas.bind("<Button-4>",
-            lambda e: self.pdf_canvas.xview_scroll(-1, "units") if (e.state & 0x1) else self.pdf_canvas.yview_scroll(-1, "units"))
+            lambda e: self.pdf_canvas.xview_scroll(-1, "units") if (e.state & 0x1)
+                      else self.pdf_canvas.yview_scroll(-1, "units"))
         self.pdf_canvas.bind("<Button-5>",
-            lambda e: self.pdf_canvas.xview_scroll(1, "units") if (e.state & 0x1) else self.pdf_canvas.yview_scroll(1, "units"))
+            lambda e: self.pdf_canvas.xview_scroll(1, "units") if (e.state & 0x1)
+                      else self.pdf_canvas.yview_scroll(1, "units"))
         self._pan_last = None
         self.pdf_canvas.bind("<ButtonPress-2>", self._pan_start)
         self.pdf_canvas.bind("<B2-Motion>",     self._pan_move)
@@ -891,7 +860,6 @@ class MusicPlayer:
 
     # ── Playback ──────────────────────────────────────────────────────────────
     def open_file(self):
-        """Open the playlist dropdown and highlight the current track."""
         if not self._playlist_open:
             self._playlist_body.pack(fill="x")
             self._playlist_arrow.set("▾  PLAYLIST")
@@ -960,11 +928,11 @@ class MusicPlayer:
     def _render_page(self):
         if not self.pdf_doc or not PYMUPDF_AVAILABLE or not PIL_AVAILABLE:
             return
-        page = self.pdf_doc[self.current_page]
+        page  = self.pdf_doc[self.current_page]
         scale = 1.5 * self.zoom_level
-        mat = fitz.Matrix(scale, scale)
-        pix = page.get_pixmap(matrix=mat, alpha=False)
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        mat   = fitz.Matrix(scale, scale)
+        pix   = page.get_pixmap(matrix=mat, alpha=False)
+        img   = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         photo = ImageTk.PhotoImage(img)
         self._pdf_img_ref = photo
         pad = 20
