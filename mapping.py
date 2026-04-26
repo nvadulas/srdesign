@@ -68,8 +68,8 @@ PLAYLIST = [
     ("Dance",  "/home/agadkari/srdesign/Music/dance.mp3"),
     ("Stomp",  "/home/agadkari/srdesign/Music/stomp.mp3"),
     ("Phonk",  "/home/agadkari/srdesign/Music/phonk.mp3"),
-    ("Joyful",  "/home/agadkari/srdesign/Music/joyful.mp3"),
-    ("Action",  "/home/agadkari/srdesign/Music/action.mp3"),
+    ("Joyful", "/home/agadkari/srdesign/Music/joyful.mp3"),
+    ("Action", "/home/agadkari/srdesign/Music/action.mp3"),
 ]
 
 # ── Sensor / gesture constants ─────────────────────────────────────────────────
@@ -333,13 +333,16 @@ class MusicPlayer:
                              padx=10)
         count_lbl.pack(side="right")
 
-        # Dropdown body (hidden initially)
+        # Dropdown body — fixed height so it never pushes controls off screen
+        BODY_H = 130
         body = tk.Frame(container, bg=SURFACE,
-                        highlightbackground=BORDER, highlightthickness=1)
+                        highlightbackground=BORDER, highlightthickness=1,
+                        height=BODY_H)
+        body.pack_propagate(False)  # ignore children's size requests
         self._playlist_body = body
 
         self._list_canvas = tk.Canvas(body, bg=SURFACE, bd=0,
-                                      highlightthickness=0, height=140)
+                                      highlightthickness=0)
         self._list_canvas.pack(side="left", fill="both", expand=True)
 
         vsb = tk.Scrollbar(body, orient="vertical",
