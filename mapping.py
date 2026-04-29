@@ -22,17 +22,12 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
-# ── Sensor imports (graceful fallback for dev without hardware) ──────────────
 try:
-    import board
-    import busio
-    import digitalio
-    import adafruit_vl53l1x
+    import board, busio, digitalio, adafruit_vl53l1x
     SENSORS_AVAILABLE = True
 except (ImportError, NotImplementedError):
     SENSORS_AVAILABLE = False
 
-# ── Color palette ────────────────────────────────────────────────────────────
 BG        = "#0D0D0F"
 SURFACE   = "#161619"
 BORDER    = "#2A2A30"
@@ -47,11 +42,9 @@ PDF_BG    = "#12121A"
 PDF_SURF  = "#1A1A24"
 PDF_ACC   = "#9B6FD4"
 
-# Active panel highlight
-PANEL_ACTIVE_BORDER = "#6F2DA8"
+PANEL_ACTIVE_BORDER   = "#6F2DA8"
 PANEL_INACTIVE_BORDER = "#2A2A30"
 
-# Sensor indicator colors
 SENSOR_OFF        = "#1A1A20"
 SENSOR_ON         = "#6F2DA8"
 SENSOR_SWIPE      = "#9B59D0"
@@ -59,18 +52,16 @@ SENSOR_HOLD       = "#C084FC"
 SENSOR_BORDER_OFF = "#2A2A35"
 SENSOR_BORDER_ON  = "#9B59D0"
 
-PLAYER_W  = 320
-PDF_W     = 720
-WIN_H     = 960
+PLAYER_W = 320
+PDF_W    = 720
+WIN_H    = 960
 
-# ── Hardcoded PDF list ────────────────────────────────────────────────────────
 PDF_LIST = [
     ("Lab Report",  "/home/agadkari/srdesign/Docs/lab_report.pdf"),
     ("Datasheet",   "/home/agadkari/srdesign/Docs/datasheet.pdf"),
     ("User Manual", "/home/agadkari/srdesign/Docs/manual.pdf"),
 ]
 
-# ── Hardcoded playlist ────────────────────────────────────────────────────────
 PLAYLIST = [
     ("Dance",  "/home/agadkari/srdesign/Music/dance.mp3"),
     ("Stomp",  "/home/agadkari/srdesign/Music/stomp.mp3"),
@@ -79,7 +70,6 @@ PLAYLIST = [
     ("Action", "/home/agadkari/srdesign/Music/action.mp3"),
 ]
 
-# ── Sensor / gesture constants ────────────────────────────────────────────────
 XSHUT_LEFT_PIN  = None
 XSHUT_RIGHT_PIN = None
 PRESENT_MM    = 300
@@ -88,17 +78,14 @@ SWIPE_TIMEOUT = 0.5
 HOLD_TIME     = 3.0
 NO_READING    = 65535
 
-# Volume gesture constants
-VOLUME_STEP             = 5    # percent per gesture tick
-VOLUME_HOLD_REPEAT_SEC  = 0.6  # seconds between repeated volume steps while held
+VOLUME_STEP            = 5
+VOLUME_HOLD_REPEAT_SEC = 0.6
 
 if SENSORS_AVAILABLE:
     XSHUT_LEFT_PIN  = board.D17
     XSHUT_RIGHT_PIN = board.D27
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Sensor helpers
-# ─────────────────────────────────────────────────────────────────────────────
+
 def make_xshut(pin):
     x = digitalio.DigitalInOut(pin)
     x.direction = digitalio.Direction.OUTPUT
@@ -147,9 +134,7 @@ def read_one(sensor):
     except OSError:
         return NO_READING
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Main Application
-# ─────────────────────────────────────────────────────────────────────────────
+
 class MusicPlayer:
     def __init__(self, root):
         self.root = root
@@ -161,33 +146,27 @@ class MusicPlayer:
         if PYGAME_AVAILABLE:
             mixer.init()
 
-        self.current_file   = None
-        self.paused         = False
-        self._drag_start    = None
+        self.current_file = None
+        self.paused       = False
+        self._drag_start  = None
 
-        # PDF state
-        self.pdf_doc        = None
-        self.pdf_path       = None
-        self.current_page   = 0
-        self.total_pages    = 0
-        self.zoom_level     = 1.0
-        self._pdf_img_ref   = None
+        self.pdf_doc      = None
+        self.pdf_path     = None
+        self.current_page = 0
+        self.total_pages  = 0
+        self.zoom_level   = 1.0
+        self._pdf_img_ref = None
 
-        # Pre-populate from hardcoded PDF_LIST (relative paths resolved to script dir)
         _script_dir = os.path.dirname(os.path.abspath(__file__))
         self._recent_pdfs = [
             (name, p if os.path.isabs(p) else os.path.join(_script_dir, p))
             for name, p in PDF_LIST
         ]
 
-        # Volume state (0–100)
-        self._volume        = 50
+        self._volume       = 50
+        self._active_panel = "music"
+        self._pdf_list_idx = 0
 
-        # ── Active panel: "music" or "pdf"
-        # Gestures adapt based on which panel is focused
-        self._active_panel  = "music"
-
-        # Gesture state
         self._gesture_running = True
 
         self._build_ui()
@@ -195,11 +174,9 @@ class MusicPlayer:
         self._update_panel_indicators()
 
         if SENSORS_AVAILABLE:
-            t = threading.Thread(target=self._sensor_loop, daemon=True)
-            t.start()
+            threading.Thread(target=self._sensor_loop, daemon=True).start()
         else:
-            t = threading.Thread(target=self._demo_sensor_loop, daemon=True)
-            t.start()
+            threading.Thread(target=self._demo_sensor_loop, daemon=True).start()
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -207,12 +184,11 @@ class MusicPlayer:
         self._gesture_running = False
         self.root.destroy()
 
-    # ── Window drag ──────────────────────────────────────────────────────────
     def _remove_title_bar(self):
         self.root.overrideredirect(True)
-        self.drag_bar.bind("<ButtonPress-1>",  self._start_drag)
-        self.drag_bar.bind("<B1-Motion>",       self._do_drag)
-        self.drag_bar.bind("<ButtonRelease-1>", self._stop_drag)
+        self.drag_bar.bind("<ButtonPress-1>",   self._start_drag)
+        self.drag_bar.bind("<B1-Motion>",        self._do_drag)
+        self.drag_bar.bind("<ButtonRelease-1>",  self._stop_drag)
 
     def _start_drag(self, e):
         self._drag_start = (e.x_root - self.root.winfo_x(),
@@ -221,14 +197,13 @@ class MusicPlayer:
     def _do_drag(self, e):
         if self._drag_start:
             self.root.geometry(
-                f"+{e.x_root - self._drag_start[0]}+{e.y_root - self._drag_start[1]}")
+                f"+{e.x_root-self._drag_start[0]}+{e.y_root-self._drag_start[1]}")
 
     def _stop_drag(self, e):
         self._drag_start = None
 
-    # ── Active panel management ──────────────────────────────────────────────
+    # ── Active panel ─────────────────────────────────────────────────────────
     def _set_active_panel(self, panel):
-        """Switch active gesture panel between 'music' and 'pdf'."""
         self._active_panel = panel
         self._update_panel_indicators()
         label = "🎵  MUSIC PANEL ACTIVE" if panel == "music" else "📄  PDF PANEL ACTIVE"
@@ -237,11 +212,9 @@ class MusicPlayer:
             text="Waiting for gesture…", fg=TEXT_SEC))
 
     def _toggle_active_panel(self):
-        new = "pdf" if self._active_panel == "music" else "music"
-        self._set_active_panel(new)
+        self._set_active_panel("pdf" if self._active_panel == "music" else "music")
 
     def _update_panel_indicators(self):
-        """Update the colored tab/border on each panel header to show which is active."""
         if self._active_panel == "music":
             self._music_tab.config(bg=ACCENT, fg=ACCENT2)
             self._pdf_tab.config(bg=SURFACE, fg=TEXT_SEC)
@@ -249,7 +222,7 @@ class MusicPlayer:
             self._music_tab.config(bg=SURFACE, fg=TEXT_SEC)
             self._pdf_tab.config(bg=ACCENT, fg=ACCENT2)
 
-    # ── UI build ─────────────────────────────────────────────────────────────
+    # ── UI skeleton ───────────────────────────────────────────────────────────
     def _build_ui(self):
         self.drag_bar = tk.Frame(self.root, bg=SURFACE, height=44, cursor="fleur")
         self.drag_bar.pack(fill="x")
@@ -287,21 +260,17 @@ class MusicPlayer:
     def _build_player(self, parent):
         self._build_sensor_panel(parent)
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", side="bottom")
-        self.status_label = tk.Label(
-            parent, text="Ready", font=("Helvetica", 7),
-            bg=SURFACE, fg=TEXT_SEC, anchor="w")
+        self.status_label = tk.Label(parent, text="Ready", font=("Helvetica", 7),
+                                     bg=SURFACE, fg=TEXT_SEC, anchor="w")
         self.status_label.pack(fill="x", side="bottom", padx=14, pady=4)
 
-        # Panel active tab indicator
-        self._music_tab = tk.Label(
-            parent, text="● MUSIC PANEL", font=("Helvetica", 7, "bold"),
-            bg=SURFACE, fg=TEXT_SEC, anchor="w", padx=12, pady=5,
-            cursor="hand2")
+        self._music_tab = tk.Label(parent, text="● MUSIC PANEL",
+                                   font=("Helvetica", 7, "bold"), bg=SURFACE,
+                                   fg=TEXT_SEC, anchor="w", padx=12, pady=5, cursor="hand2")
         self._music_tab.pack(fill="x")
         self._music_tab.bind("<Button-1>", lambda e: self._set_active_panel("music"))
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x")
 
-        # Vinyl art
         art_frame = tk.Frame(parent, bg=BG, pady=10)
         art_frame.pack(fill="x")
         self.art_canvas = tk.Canvas(art_frame, width=120, height=120,
@@ -309,7 +278,6 @@ class MusicPlayer:
         self.art_canvas.pack()
         self._draw_vinyl(self.art_canvas)
 
-        # Track info
         info_frame = tk.Frame(parent, bg=BG)
         info_frame.pack(fill="x", padx=20)
         self.track_label = tk.Label(info_frame, text="No track selected",
@@ -322,14 +290,12 @@ class MusicPlayer:
 
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20, pady=6)
 
-        # Playback controls
         ctrl = tk.Frame(parent, bg=BG)
         ctrl.pack()
         self._make_icon_btn(ctrl, "⏮", self.stop_music,  size=18).pack(side="left", padx=12)
         self._make_play_btn(ctrl).pack(side="left", padx=12)
         self._make_icon_btn(ctrl, "⏸", self.pause_music, size=18).pack(side="left", padx=12)
 
-        # Volume row
         vol_frame = tk.Frame(parent, bg=BG, pady=5)
         vol_frame.pack(fill="x", padx=20)
         tk.Label(vol_frame, text="VOL", font=("Helvetica", 7, "bold"),
@@ -348,18 +314,14 @@ class MusicPlayer:
         self._vol_readout.pack(side="left", padx=(6, 0))
 
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(2, 0))
-
         self._build_playlist(parent)
 
     # ── Playlist ──────────────────────────────────────────────────────────────
     def _build_playlist(self, parent):
-        BODY_H   = 130
-        HEADER_H = 34
-        TOTAL_H  = BODY_H + HEADER_H
-
+        BODY_H, HEADER_H = 130, 34
         script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        outer = tk.Frame(parent, bg=BG, height=TOTAL_H)
+        outer = tk.Frame(parent, bg=BG, height=BODY_H + HEADER_H)
         outer.pack(fill="x", padx=12, pady=(6, 0))
         outer.pack_propagate(False)
 
@@ -377,8 +339,7 @@ class MusicPlayer:
                               anchor="w", padx=12, pady=7, cursor="hand2")
         toggle_lbl.pack(side="left", fill="x", expand=True)
         tk.Label(hdr, text=f"{len(PLAYLIST)} tracks",
-                 font=("Helvetica", 7), bg=SURFACE, fg=TEXT_SEC,
-                 padx=10).pack(side="right")
+                 font=("Helvetica", 7), bg=SURFACE, fg=TEXT_SEC, padx=10).pack(side="right")
 
         body = tk.Frame(outer, bg=SURFACE, highlightbackground=BORDER,
                         highlightthickness=1, height=BODY_H)
@@ -410,16 +371,15 @@ class MusicPlayer:
         for idx, (name, fpath) in enumerate(PLAYLIST):
             if not os.path.isabs(fpath):
                 fpath = os.path.join(script_dir, fpath)
-            row = tk.Frame(inner, bg=SURFACE, cursor="hand2")
+            row      = tk.Frame(inner, bg=SURFACE, cursor="hand2")
             row.pack(fill="x")
-            num = tk.Label(row, text=f"{idx+1:02d}", font=("Helvetica", 8),
-                           bg=SURFACE, fg=TEXT_SEC, width=3, anchor="e")
+            num      = tk.Label(row, text=f"{idx+1:02d}", font=("Helvetica", 8),
+                                bg=SURFACE, fg=TEXT_SEC, width=3, anchor="e")
             num.pack(side="left", padx=(10, 4), pady=7)
             name_lbl = tk.Label(row, text=name, font=("Helvetica", 9),
                                 bg=SURFACE, fg=TEXT_PRI, anchor="w")
             name_lbl.pack(side="left", fill="x", expand=True, padx=(0, 10))
             tk.Frame(inner, bg=BORDER, height=1).pack(fill="x", padx=10)
-
             self._track_row_widgets.append((row, num, name_lbl))
 
             def _enter(e, i=idx):
@@ -456,16 +416,14 @@ class MusicPlayer:
     def _set_playlist_highlight(self, idx):
         for i, (row, num, name_lbl) in enumerate(self._track_row_widgets):
             if i == idx:
-                row.config(bg=ACCENT);     num.config(bg=ACCENT,   fg=ACCENT2)
+                row.config(bg=ACCENT);     num.config(bg=ACCENT,  fg=ACCENT2)
                 name_lbl.config(bg=ACCENT, fg=ACCENT2)
             else:
-                row.config(bg=SURFACE);    num.config(bg=SURFACE,  fg=TEXT_SEC)
+                row.config(bg=SURFACE);    num.config(bg=SURFACE, fg=TEXT_SEC)
                 name_lbl.config(bg=SURFACE, fg=TEXT_PRI)
         if self._track_row_widgets:
-            total_h = len(self._track_row_widgets) * 34
-            if total_h > 0:
-                frac = idx / len(self._track_row_widgets)
-                self._list_canvas.yview_moveto(max(0, frac - 0.1))
+            frac = idx / len(self._track_row_widgets)
+            self._list_canvas.yview_moveto(max(0, frac - 0.1))
 
     def _load_track_by_idx(self, idx):
         if not PLAYLIST or idx < 0 or idx >= len(PLAYLIST):
@@ -488,7 +446,7 @@ class MusicPlayer:
             self._playlist_open = False
         self.play_music()
 
-    # ── Volume helpers ────────────────────────────────────────────────────────
+    # ── Volume ────────────────────────────────────────────────────────────────
     def _on_volume_slider(self, value):
         self._volume = int(value)
         self._vol_readout.config(text=f"{self._volume}%")
@@ -510,7 +468,7 @@ class MusicPlayer:
         self._set_volume(self._volume - VOLUME_STEP)
         self._set_status(f"Volume: {self._volume}%")
 
-    # ── Sensor status panel ───────────────────────────────────────────────────
+    # ── Sensor panel ─────────────────────────────────────────────────────────
     def _build_sensor_panel(self, parent):
         panel = tk.Frame(parent, bg=SURFACE)
         panel.pack(fill="x", side="bottom")
@@ -530,55 +488,47 @@ class MusicPlayer:
         self._left_box,  self._left_label,  self._left_dist  = self._make_sensor_box(boxes_row, "LEFT")
         self._right_box, self._right_label, self._right_dist = self._make_sensor_box(boxes_row, "RIGHT")
 
-        self._gesture_strip = tk.Label(
-            panel, text="Waiting for gesture…",
-            font=("Helvetica", 8, "bold"), bg="#0F0F15", fg=TEXT_SEC,
-            pady=4, anchor="center")
+        self._gesture_strip = tk.Label(panel, text="Waiting for gesture…",
+                                       font=("Helvetica", 8, "bold"), bg="#0F0F15",
+                                       fg=TEXT_SEC, pady=4, anchor="center")
         self._gesture_strip.pack(fill="x", padx=12, pady=(0, 4))
 
-        # ── Gesture reference table ──────────────────────────────────────────
         tbl_outer = tk.Frame(panel, bg=SURFACE)
         tbl_outer.pack(fill="x", padx=12, pady=(0, 8))
 
-        # Header row
         hdr_row = tk.Frame(tbl_outer, bg="#1E1830")
         hdr_row.pack(fill="x")
         tk.Label(hdr_row, text="GESTURE", font=("Helvetica", 6, "bold"),
-                 bg="#1E1830", fg=ACCENT2, anchor="w", width=16, padx=6, pady=4
-                 ).pack(side="left")
+                 bg="#1E1830", fg=ACCENT2, anchor="w", width=16, padx=6, pady=4).pack(side="left")
         tk.Frame(hdr_row, bg=BORDER, width=1).pack(side="left", fill="y")
         tk.Label(hdr_row, text="🎵  MUSIC PANEL", font=("Helvetica", 6, "bold"),
-                 bg="#1E1830", fg="#C084FC", anchor="w", width=18, padx=6
-                 ).pack(side="left")
+                 bg="#1E1830", fg="#C084FC", anchor="w", width=18, padx=6).pack(side="left")
         tk.Frame(hdr_row, bg=BORDER, width=1).pack(side="left", fill="y")
         tk.Label(hdr_row, text="📄  PDF PANEL", font=("Helvetica", 6, "bold"),
-                 bg="#1E1830", fg=PDF_ACC, anchor="w", padx=6
-                 ).pack(side="left", fill="x", expand=True)
+                 bg="#1E1830", fg=PDF_ACC, anchor="w", padx=6).pack(side="left", fill="x", expand=True)
 
         tk.Frame(tbl_outer, bg=ACCENT, height=1).pack(fill="x")
 
+        # Table reflects the full closed|open mapping
         rows = [
-            ("← Swipe  R→L",  "Open / close playlist",     "Open / close PDF list"),
-            ("→ Swipe  L→R",  "Switch to PDF panel",        "Switch to Music panel"),
-            ("✋ Hold Left",    "Vol ▲  |  Playlist: prev",  "Previous page"),
-            ("✋ Hold Right",   "Vol ▼  |  Playlist: next",  "Next page"),
-            ("✋ Hold Both",    "Stop  |  Playlist: confirm","Zoom reset 100%"),
+            ("← Swipe  R→L",  "Open/Close Playlist",         "Open/Close PDF list"),
+            ("→ Swipe  L→R",  "Switch to PDF panel",          "Switch to Music panel"),
+            ("✋ Hold Left",    "Vol ▲  |  Playlist: prev",    "Prev page  |  PDFs: prev"),
+            ("✋ Hold Right",   "Vol ▼  |  Playlist: next",    "Next page  |  PDFs: next"),
+            ("✋ Hold Both",    "Stop/Play  |  Confirm track", "Zoom reset  |  Confirm PDF"),
         ]
         for i, (gesture, music_action, pdf_action) in enumerate(rows):
             row_bg = BG if i % 2 == 0 else "#111118"
             row = tk.Frame(tbl_outer, bg=row_bg)
             row.pack(fill="x")
             tk.Label(row, text=gesture, font=("Helvetica", 6, "bold"),
-                     bg=row_bg, fg=ACCENT2, anchor="w", width=16, padx=6, pady=4
-                     ).pack(side="left")
+                     bg=row_bg, fg=ACCENT2, anchor="w", width=16, padx=6, pady=4).pack(side="left")
             tk.Frame(row, bg=BORDER, width=1).pack(side="left", fill="y")
             tk.Label(row, text=music_action, font=("Helvetica", 6),
-                     bg=row_bg, fg=TEXT_PRI, anchor="w", width=18, padx=6
-                     ).pack(side="left")
+                     bg=row_bg, fg=TEXT_PRI, anchor="w", width=18, padx=6).pack(side="left")
             tk.Frame(row, bg=BORDER, width=1).pack(side="left", fill="y")
             tk.Label(row, text=pdf_action, font=("Helvetica", 6),
-                     bg=row_bg, fg=TEXT_PRI, anchor="w", padx=6
-                     ).pack(side="left", fill="x", expand=True)
+                     bg=row_bg, fg=TEXT_PRI, anchor="w", padx=6).pack(side="left", fill="x", expand=True)
             tk.Frame(tbl_outer, bg=BORDER, height=1).pack(fill="x")
 
     def _make_sensor_box(self, parent, label_text):
@@ -590,19 +540,14 @@ class MusicPlayer:
         box.pack_propagate(False)
         inner = tk.Frame(box, bg=SENSOR_OFF)
         inner.place(relx=0.5, rely=0.5, anchor="center")
-        icon = tk.Label(inner, text="○", font=("Helvetica", 13),
-                        bg=SENSOR_OFF, fg=TEXT_SEC)
+        icon = tk.Label(inner, text="○", font=("Helvetica", 13), bg=SENSOR_OFF, fg=TEXT_SEC)
         icon.pack()
-        lbl = tk.Label(inner, text=label_text, font=("Helvetica", 6, "bold"),
-                       bg=SENSOR_OFF, fg=TEXT_SEC)
-        lbl.pack()
-        dist = tk.Label(inner, text="—", font=("Helvetica", 6),
+        lbl  = tk.Label(inner, text=label_text, font=("Helvetica", 6, "bold"),
                         bg=SENSOR_OFF, fg=TEXT_SEC)
+        lbl.pack()
+        dist = tk.Label(inner, text="—", font=("Helvetica", 6), bg=SENSOR_OFF, fg=TEXT_SEC)
         dist.pack()
-        box._inner = inner
-        box._icon  = icon
-        box._name  = lbl
-        box._dist  = dist
+        box._inner = inner;  box._icon = icon;  box._name = lbl;  box._dist = dist
         return box, lbl, dist
 
     def _set_sensor_state(self, box, state, dist_text="—"):
@@ -629,8 +574,7 @@ class MusicPlayer:
     def _flash_both(self, state, message, duration_ms=700):
         self._set_sensor_state(self._left_box, state)
         self._set_sensor_state(self._right_box, state)
-        self._gesture_strip.config(
-            text=message,
+        self._gesture_strip.config(text=message,
             fg=SENSOR_HOLD if state == "hold" else ACCENT2)
         self.root.after(duration_ms + 2000,
             lambda: self._gesture_strip.config(text="Waiting for gesture…", fg=TEXT_SEC))
@@ -638,17 +582,11 @@ class MusicPlayer:
     # ── Sensor loop ───────────────────────────────────────────────────────────
     def _sensor_loop(self):
         sensor_left, sensor_right = init_sensors()
-        swipe_stage      = 0
-        swipe_dir        = None
+        swipe_stage = swipe_dir = None
         swipe_start_time = 0
-        hold_left_start  = None
-        hold_right_start = None
-        hold_both_start  = None
-        hold_left_fired  = False
-        hold_right_fired = False
-        hold_both_fired  = False
-        vol_left_last_repeat  = 0
-        vol_right_last_repeat = 0
+        hold_left_start = hold_right_start = hold_both_start = None
+        hold_left_fired = hold_right_fired = hold_both_fired = False
+        vol_left_last_repeat = vol_right_last_repeat = 0
 
         while self._gesture_running:
             left  = read_one(sensor_left)
@@ -664,93 +602,79 @@ class MusicPlayer:
             self.root.after(0, lambda rp=right_present, dr=dist_r:
                 self._set_sensor_state(self._right_box, "on" if rp else "off", dr))
 
-            # ── Hold both ────────────────────────────────────────────────────
+            # Hold both
             if left_present and right_present:
                 if hold_both_start is None:
                     hold_both_start = now
                 if not hold_both_fired and now - hold_both_start >= HOLD_TIME:
                     hold_both_fired = True
                     self.root.after(0, lambda: self._flash_both(
-                        "hold", "✋  HOLD BOTH — Stop / Confirm / Zoom Reset", 800))
+                        "hold", "✋  HOLD BOTH — Stop/Play · Confirm · Zoom Reset", 800))
                     self.root.after(0, self._on_gesture_hold_both)
             else:
-                hold_both_start = None
-                hold_both_fired = False
+                hold_both_start = None;  hold_both_fired = False
 
-            # ── Hold left ────────────────────────────────────────────────────
+            # Hold left
             if left_present and not right_present:
                 if hold_left_start is None:
-                    hold_left_start      = now
-                    vol_left_last_repeat = now
+                    hold_left_start = vol_left_last_repeat = now
                 if not hold_left_fired and now - hold_left_start >= HOLD_TIME:
-                    hold_left_fired      = True
+                    hold_left_fired = True
                     vol_left_last_repeat = now
                     self.root.after(0, lambda: self._flash_gesture(
                         "left", "hold",
-                        "✋  HOLD LEFT — Vol ▲ / Playlist ↑  |  PDF: Prev Page", 800))
+                        "✋  HOLD LEFT — Vol ▲ / Prev  |  PDF: Prev page / PDFs ↑", 800))
                     self.root.after(0, self._on_gesture_hold_left)
                 elif hold_left_fired and self._active_panel == "music" and not self._playlist_open:
                     if now - vol_left_last_repeat >= VOLUME_HOLD_REPEAT_SEC:
                         vol_left_last_repeat = now
                         self.root.after(0, self.volume_up)
             else:
-                hold_left_start = None
-                hold_left_fired = False
+                hold_left_start = None;  hold_left_fired = False
 
-            # ── Hold right ───────────────────────────────────────────────────
+            # Hold right
             if right_present and not left_present:
                 if hold_right_start is None:
-                    hold_right_start      = now
-                    vol_right_last_repeat = now
+                    hold_right_start = vol_right_last_repeat = now
                 if not hold_right_fired and now - hold_right_start >= HOLD_TIME:
-                    hold_right_fired      = True
+                    hold_right_fired = True
                     vol_right_last_repeat = now
                     self.root.after(0, lambda: self._flash_gesture(
                         "right", "hold",
-                        "✋  HOLD RIGHT — Vol ▼ / Playlist ↓  |  PDF: Next Page", 800))
+                        "✋  HOLD RIGHT — Vol ▼ / Next  |  PDF: Next page / PDFs ↓", 800))
                     self.root.after(0, self._on_gesture_hold_right)
                 elif hold_right_fired and self._active_panel == "music" and not self._playlist_open:
                     if now - vol_right_last_repeat >= VOLUME_HOLD_REPEAT_SEC:
                         vol_right_last_repeat = now
                         self.root.after(0, self.volume_down)
             else:
-                hold_right_start = None
-                hold_right_fired = False
+                hold_right_start = None;  hold_right_fired = False
 
-            # ── Swipe detection ───────────────────────────────────────────────
-            if swipe_stage == 0:
+            # Swipe detection
+            if swipe_stage == 0 or swipe_stage is None:
+                swipe_stage = 0
                 if left_present and (not right_present or left < right - DOMINANCE_MM):
-                    swipe_stage      = 1
-                    swipe_dir        = "LR"
-                    swipe_start_time = now
+                    swipe_stage = 1;  swipe_dir = "LR";  swipe_start_time = now
                 elif right_present and (not left_present or right < left - DOMINANCE_MM):
-                    swipe_stage      = 1
-                    swipe_dir        = "RL"
-                    swipe_start_time = now
+                    swipe_stage = 1;  swipe_dir = "RL";  swipe_start_time = now
             elif swipe_stage == 1:
                 if now - swipe_start_time > SWIPE_TIMEOUT:
-                    swipe_stage = 0
-                    swipe_dir   = None
+                    swipe_stage = 0;  swipe_dir = None
                 elif swipe_dir == "LR":
-                    # Left-to-Right swipe → switch panel
                     if right_present and (not left_present or right < left - DOMINANCE_MM):
-                        swipe_stage = 0
-                        swipe_dir   = None
+                        swipe_stage = 0;  swipe_dir = None
                         self.root.after(0, lambda: self._flash_gesture(
                             "right", "swipe", "→  SWIPE L→R — Switch Panel"))
                         self.root.after(0, self._on_gesture_swipe_lr)
                 elif swipe_dir == "RL":
-                    # Right-to-Left swipe → open/close playlist or PDF list
                     if left_present and (not right_present or left < right - DOMINANCE_MM):
-                        swipe_stage = 0
-                        swipe_dir   = None
+                        swipe_stage = 0;  swipe_dir = None
                         self.root.after(0, lambda: self._flash_gesture(
                             "left", "swipe", "←  SWIPE R→L — Open / Close List"))
                         self.root.after(0, self._on_gesture_swipe_rl)
 
             time.sleep(0.02)
 
-    # ── Demo loop ──────────────────────────────────────────────────────────────
     def _demo_sensor_loop(self):
         import random
         while self._gesture_running:
@@ -765,45 +689,34 @@ class MusicPlayer:
                 self._set_sensor_state(self._right_box, "on" if rp_ else "off", dr_))
             time.sleep(1.2)
 
-    # ── Gesture handlers ──────────────────────────────────────────────────────
+    # ── Gesture handlers ─────────────────────────────────────────────────────
+    # Swipe R→L : open/close playlist OR pdf list
+    # Swipe L→R : switch panel
     #
-    # ALL MODES:
-    #   Swipe L→R  → switch panel (music ↔ pdf)
-    #   Swipe R→L  → open/close playlist (music) or open/close PDF list (pdf)
+    # MUSIC closed : Hold L = Vol▲  |  Hold R = Vol▼  |  Hold Both = Stop/Play
+    # MUSIC open   : Hold L = prev  |  Hold R = next   |  Hold Both = Confirm
     #
-    # MUSIC PANEL (playlist closed):
-    #   Hold Left   → volume UP (repeats while held)
-    #   Hold Right  → volume DOWN (repeats while held)
-    #   Hold Both   → stop
-    #
-    # MUSIC PANEL (playlist open):
-    #   Hold Left   → scroll highlight UP
-    #   Hold Right  → scroll highlight DOWN
-    #   Hold Both   → confirm / play selected track
-    #
-    # PDF PANEL:
-    #   Hold Left   → previous page
-    #   Hold Right  → next page
-    #   Hold Both   → zoom reset to 100%
+    # PDF closed   : Hold L = Prev page  |  Hold R = Next page  |  Hold Both = Zoom reset
+    # PDF open     : Hold L = PDFs prev  |  Hold R = PDFs next  |  Hold Both = Confirm PDF
 
     def _on_gesture_swipe_lr(self):
-        """L→R: always switches active panel."""
         self._toggle_active_panel()
 
     def _on_gesture_swipe_rl(self):
-        """R→L: toggles playlist (music) or PDF file list (pdf)."""
         if self._active_panel == "music":
             if self._playlist_open:
                 self._close_playlist()
             else:
                 self.open_file()
         else:
-            # PDF panel — toggle PDF file list dropdown
             self._toggle_pdf_list()
 
     def _on_gesture_hold_left(self):
         if self._active_panel == "pdf":
-            self.prev_page()
+            if self._pdf_list_open:
+                self._pdf_list_scroll_up()
+            else:
+                self.prev_page()
         elif self._playlist_open:
             self._playlist_scroll_up()
         else:
@@ -811,7 +724,10 @@ class MusicPlayer:
 
     def _on_gesture_hold_right(self):
         if self._active_panel == "pdf":
-            self.next_page()
+            if self._pdf_list_open:
+                self._pdf_list_scroll_down()
+            else:
+                self.next_page()
         elif self._playlist_open:
             self._playlist_scroll_down()
         else:
@@ -819,13 +735,24 @@ class MusicPlayer:
 
     def _on_gesture_hold_both(self):
         if self._active_panel == "pdf":
-            self._pdf_zoom_reset()
+            if self._pdf_list_open:
+                self._load_pdf_by_idx(self._pdf_list_idx)
+                self._toggle_pdf_list()          # close list after confirming
+            else:
+                self._pdf_zoom_reset()
         elif self._playlist_open:
             self._load_track_by_idx(self._playlist_idx)
             self._close_playlist()
         else:
-            self.stop_music()
+            # Toggle stop / play
+            if PYGAME_AVAILABLE and mixer.music.get_busy():
+                self.stop_music()
+                self._set_status("Music stopped")
+            else:
+                self.play_music()
+                self._set_status("Music playing")
 
+    # ── Helpers ───────────────────────────────────────────────────────────────
     def _close_playlist(self):
         if self._playlist_open:
             self._playlist_body.pack_forget()
@@ -841,37 +768,60 @@ class MusicPlayer:
             self._pdf_list_body.pack(fill="x")
             self._pdf_list_arrow.set("▾  PDF FILES")
             self._pdf_list_open = True
+            self._set_pdf_list_highlight(self._pdf_list_idx)
 
     def _playlist_scroll_up(self):
-        if not PLAYLIST:
-            return
-        new_idx = (self._playlist_idx - 1) % len(PLAYLIST)
-        self._playlist_idx = new_idx
-        self._set_playlist_highlight(new_idx)
+        if PLAYLIST:
+            self._playlist_idx = (self._playlist_idx - 1) % len(PLAYLIST)
+            self._set_playlist_highlight(self._playlist_idx)
 
     def _playlist_scroll_down(self):
-        if not PLAYLIST:
-            return
-        new_idx = (self._playlist_idx + 1) % len(PLAYLIST)
-        self._playlist_idx = new_idx
-        self._set_playlist_highlight(new_idx)
+        if PLAYLIST:
+            self._playlist_idx = (self._playlist_idx + 1) % len(PLAYLIST)
+            self._set_playlist_highlight(self._playlist_idx)
 
-    # ── PDF panel ──────────────────────────────────────────────────────────────
+    def _pdf_list_scroll_up(self):
+        if self._recent_pdfs:
+            self._pdf_list_idx = (self._pdf_list_idx - 1) % len(self._recent_pdfs)
+            self._set_pdf_list_highlight(self._pdf_list_idx)
+            self._set_status(f"PDF: {self._recent_pdfs[self._pdf_list_idx][0]}")
+
+    def _pdf_list_scroll_down(self):
+        if self._recent_pdfs:
+            self._pdf_list_idx = (self._pdf_list_idx + 1) % len(self._recent_pdfs)
+            self._set_pdf_list_highlight(self._pdf_list_idx)
+            self._set_status(f"PDF: {self._recent_pdfs[self._pdf_list_idx][0]}")
+
+    def _set_pdf_list_highlight(self, idx):
+        """Purple = gesture cursor; tinted = currently loaded PDF."""
+        for i, (row, num, name_lbl) in enumerate(self._pdf_row_widgets):
+            is_loaded = (self._recent_pdfs[i][1] == self.pdf_path)
+            if i == idx:
+                row.config(bg=ACCENT);      num.config(bg=ACCENT,   fg=ACCENT2)
+                name_lbl.config(bg=ACCENT,  fg=ACCENT2)
+            elif is_loaded:
+                row.config(bg=PDF_ACC);     num.config(bg=PDF_ACC,  fg=ACCENT2)
+                name_lbl.config(bg=PDF_ACC, fg=ACCENT2)
+            else:
+                row.config(bg=PDF_SURF);    num.config(bg=PDF_SURF, fg=TEXT_SEC)
+                name_lbl.config(bg=PDF_SURF, fg=TEXT_PRI)
+        if self._pdf_row_widgets:
+            frac = idx / len(self._pdf_row_widgets)
+            self._pdf_list_canvas.yview_moveto(max(0, frac - 0.1))
+
+    # ── PDF panel ─────────────────────────────────────────────────────────────
     def _build_pdf_panel(self, parent):
         header = tk.Frame(parent, bg=PDF_SURF, height=38)
         header.pack(fill="x")
         header.pack_propagate(False)
-
         tk.Label(header, text="⧉  PDF VIEWER", font=("Georgia", 10, "bold"),
                  bg=PDF_SURF, fg=PDF_ACC, pady=10).pack(side="left", padx=16)
 
         tk.Frame(parent, bg="#3A2A50", height=1).pack(fill="x")
 
-        # Panel active tab indicator (PDF side)
-        self._pdf_tab = tk.Label(
-            parent, text="● PDF PANEL", font=("Helvetica", 7, "bold"),
-            bg=SURFACE, fg=TEXT_SEC, anchor="w", padx=12, pady=5,
-            cursor="hand2")
+        self._pdf_tab = tk.Label(parent, text="● PDF PANEL",
+                                 font=("Helvetica", 7, "bold"), bg=SURFACE,
+                                 fg=TEXT_SEC, anchor="w", padx=12, pady=5, cursor="hand2")
         self._pdf_tab.pack(fill="x")
         self._pdf_tab.bind("<Button-1>", lambda e: self._set_active_panel("pdf"))
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x")
@@ -887,8 +837,8 @@ class MusicPlayer:
         prev_btn.bind("<Enter>",    lambda e: prev_btn.config(fg=PDF_ACC))
         prev_btn.bind("<Leave>",    lambda e: prev_btn.config(fg=TEXT_SEC))
 
-        self.page_label = tk.Label(toolbar, text="— / —", font=("Helvetica", 9),
-                                   bg=PDF_SURF, fg=TEXT_SEC)
+        self.page_label = tk.Label(toolbar, text="— / —",
+                                   font=("Helvetica", 9), bg=PDF_SURF, fg=TEXT_SEC)
         self.page_label.pack(side="left", padx=4)
 
         next_btn = tk.Label(toolbar, text="▶", **nav_cfg)
@@ -904,8 +854,8 @@ class MusicPlayer:
         zoom_out.bind("<Enter>",    lambda e: zoom_out.config(fg=PDF_ACC))
         zoom_out.bind("<Leave>",    lambda e: zoom_out.config(fg=TEXT_SEC))
 
-        self.zoom_label = tk.Label(toolbar, text="100%", font=("Helvetica", 9),
-                                   bg=PDF_SURF, fg=TEXT_SEC)
+        self.zoom_label = tk.Label(toolbar, text="100%",
+                                   font=("Helvetica", 9), bg=PDF_SURF, fg=TEXT_SEC)
         self.zoom_label.pack(side="right", padx=4)
 
         zoom_in = tk.Label(toolbar, text="+", **zm_cfg)
@@ -915,8 +865,6 @@ class MusicPlayer:
         zoom_in.bind("<Leave>",    lambda e: zoom_in.config(fg=TEXT_SEC))
 
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x")
-
-        # ── PDF file dropdown (replaces old "Open PDF" button) ────────────────
         self._build_pdf_list(parent)
 
         canvas_frame = tk.Frame(parent, bg=PDF_BG)
@@ -960,14 +908,11 @@ class MusicPlayer:
 
         self._draw_pdf_placeholder()
 
-    # ── PDF file list dropdown (styled like playlist) ─────────────────────────
+    # ── PDF file list dropdown ────────────────────────────────────────────────
     def _build_pdf_list(self, parent):
-        """Collapsible PDF file list — same visual style as the music playlist."""
-        BODY_H   = 100
-        HEADER_H = 34
-        TOTAL_H  = BODY_H + HEADER_H
+        BODY_H, HEADER_H = 100, 34
 
-        outer = tk.Frame(parent, bg=PDF_BG, height=TOTAL_H)
+        outer = tk.Frame(parent, bg=PDF_BG, height=BODY_H + HEADER_H)
         outer.pack(fill="x", padx=8, pady=(4, 2))
         outer.pack_propagate(False)
 
@@ -985,9 +930,7 @@ class MusicPlayer:
                               anchor="w", padx=12, pady=7, cursor="hand2")
         toggle_lbl.pack(side="left", fill="x", expand=True)
 
-        # "Open file…" sits in the header on the right — always visible
-        open_lbl = tk.Label(hdr, text="+ Open…",
-                            font=("Helvetica", 7, "bold"),
+        open_lbl = tk.Label(hdr, text="+ Open…", font=("Helvetica", 7, "bold"),
                             bg=PDF_SURF, fg=TEXT_SEC, padx=10, cursor="hand2")
         open_lbl.pack(side="right")
         open_lbl.bind("<Button-1>", lambda e: self.open_pdf())
@@ -1026,7 +969,6 @@ class MusicPlayer:
 
         self._pdf_row_widgets = []
 
-        # Show hardcoded PDFs immediately, or placeholder if list is empty
         if self._recent_pdfs:
             self._refresh_pdf_list()
         else:
@@ -1041,93 +983,75 @@ class MusicPlayer:
                 self._pdf_list_body.pack(fill="x")
                 self._pdf_list_arrow.set("▾  PDF FILES")
                 self._pdf_list_open = True
+                self._set_pdf_list_highlight(self._pdf_list_idx)
 
         toggle_lbl.bind("<Button-1>", _toggle)
         toggle_lbl.bind("<Enter>", lambda e: toggle_lbl.config(fg=ACCENT2))
         toggle_lbl.bind("<Leave>", lambda e: toggle_lbl.config(fg=TEXT_SEC))
 
     def _add_pdf_to_list(self, path):
-        """Add or promote a PDF entry in the dropdown list."""
         name = os.path.basename(path)
-        # Remove if already present (promote to top)
         self._recent_pdfs = [(n, p) for n, p in self._recent_pdfs if p != path]
         self._recent_pdfs.insert(0, (name, path))
-        # Keep only 8 recent
         self._recent_pdfs = self._recent_pdfs[:8]
-        # Only refresh UI if widgets exist
+        self._pdf_list_idx = 0
         if hasattr(self, '_pdf_inner_frame'):
             self._refresh_pdf_list()
-            # Auto-open the list when a new file is added
             if not self._pdf_list_open:
                 self._pdf_list_body.pack(fill="x")
                 self._pdf_list_arrow.set("▾  PDF FILES")
                 self._pdf_list_open = True
 
     def _refresh_pdf_list(self):
-        """Rebuild all rows in the PDF list from self._recent_pdfs."""
-        # Clear existing rows
         for w in self._pdf_row_widgets:
             w[0].destroy()
         self._pdf_row_widgets = []
-
         if self._pdf_placeholder:
             self._pdf_placeholder.pack_forget()
 
         current_path = self.pdf_path
-
         for idx, (name, fpath) in enumerate(self._recent_pdfs):
             is_active = (fpath == current_path)
             row_bg = PDF_ACC if is_active else PDF_SURF
 
             row = tk.Frame(self._pdf_inner_frame, bg=row_bg, cursor="hand2")
             row.pack(fill="x")
-
             num = tk.Label(row, text=f"{idx+1:02d}",
                            font=("Helvetica", 8), bg=row_bg,
                            fg=ACCENT2 if is_active else TEXT_SEC,
                            width=3, anchor="e")
             num.pack(side="left", padx=(10, 4), pady=6)
-
             name_lbl = tk.Label(row, text=name, font=("Helvetica", 9),
                                 bg=row_bg,
                                 fg=ACCENT2 if is_active else TEXT_PRI,
                                 anchor="w")
             name_lbl.pack(side="left", fill="x", expand=True, padx=(0, 10))
-
-            # Page count badge if loaded
             if is_active and self.total_pages:
-                pg_lbl = tk.Label(row, text=f"{self.total_pages}p",
-                                  font=("Helvetica", 7), bg=row_bg,
-                                  fg=ACCENT2, padx=6)
-                pg_lbl.pack(side="right", padx=(0, 6))
+                tk.Label(row, text=f"{self.total_pages}p",
+                         font=("Helvetica", 7), bg=row_bg, fg=ACCENT2,
+                         padx=6).pack(side="right", padx=(0, 6))
 
             tk.Frame(self._pdf_inner_frame, bg="#2A2035", height=1).pack(fill="x", padx=10)
-
             self._pdf_row_widgets.append((row, num, name_lbl))
 
             def _enter(e, i=idx):
-                if self._recent_pdfs[i][1] != current_path:
+                if self._recent_pdfs[i][1] != current_path and i != self._pdf_list_idx:
                     r, n_, nl = self._pdf_row_widgets[i]
                     r.config(bg="#22182E"); n_.config(bg="#22182E"); nl.config(bg="#22182E")
-
             def _leave(e, i=idx):
-                if self._recent_pdfs[i][1] != current_path:
+                if self._recent_pdfs[i][1] != current_path and i != self._pdf_list_idx:
                     r, n_, nl = self._pdf_row_widgets[i]
                     r.config(bg=PDF_SURF); n_.config(bg=PDF_SURF); nl.config(bg=PDF_SURF)
-
             def _select(e, i=idx):
                 self._load_pdf_by_idx(i)
-
             for w in (row, num, name_lbl):
                 w.bind("<Enter>",    _enter)
                 w.bind("<Leave>",    _leave)
                 w.bind("<Button-1>", _select)
 
     def _load_pdf_by_idx(self, idx):
-        if idx < 0 or idx >= len(self._recent_pdfs):
-            return
-        _, fpath = self._recent_pdfs[idx]
-        self._open_pdf_path(fpath)
+        if 0 <= idx < len(self._recent_pdfs):
+            self._open_pdf_path(self._recent_pdfs[idx][1])
 
     def _draw_pdf_placeholder(self):
         self.pdf_canvas.delete("all")
@@ -1137,7 +1061,7 @@ class MusicPlayer:
                                     text="Open a PDF to view it here",
                                     font=("Helvetica", 11), fill=TEXT_SEC, anchor="center")
 
-    # ── Drawing helpers ────────────────────────────────────────────────────────
+    # ── Drawing helpers ───────────────────────────────────────────────────────
     def _draw_vinyl(self, canvas):
         cx, cy, r = 60, 60, 52
         canvas.create_oval(cx-r, cy-r, cx+r, cy+r, fill="#1C1C20", outline=BORDER, width=2)
@@ -1178,27 +1102,21 @@ class MusicPlayer:
         if not PYGAME_AVAILABLE or not self.current_file:
             return
         if self.paused:
-            mixer.music.unpause()
-            self.paused = False
+            mixer.music.unpause();  self.paused = False
         else:
-            mixer.music.load(self.current_file)
-            mixer.music.play()
+            mixer.music.load(self.current_file);  mixer.music.play()
 
     def pause_music(self):
         if not PYGAME_AVAILABLE:
             return
         if not self.paused:
-            mixer.music.pause()
-            self.paused = True
+            mixer.music.pause();    self.paused = True
         else:
-            mixer.music.unpause()
-            self.paused = False
+            mixer.music.unpause();  self.paused = False
 
     def stop_music(self):
-        if not PYGAME_AVAILABLE:
-            return
-        mixer.music.stop()
-        self.paused = False
+        if PYGAME_AVAILABLE:
+            mixer.music.stop();  self.paused = False
 
     def set_volume(self, value):
         if PYGAME_AVAILABLE:
@@ -1208,24 +1126,20 @@ class MusicPlayer:
         self.status_label.config(text=msg)
         self.root.after(3000, lambda: self.status_label.config(text="Ready"))
 
-    # ── PDF ────────────────────────────────────────────────────────────────────
+    # ── PDF ───────────────────────────────────────────────────────────────────
     def open_pdf(self):
         path = filedialog.askopenfilename(
             filetypes=[("PDF Files", "*.pdf"), ("All files", "*.*")])
-        if not path:
-            return
-        self._open_pdf_path(path)
+        if path:
+            self._open_pdf_path(path)
 
     def _open_pdf_path(self, path):
         if not os.path.exists(path):
-            self._set_status(f"File not found: {os.path.basename(path)}")
-            return
+            self._set_status(f"File not found: {os.path.basename(path)}");  return
         if not PYMUPDF_AVAILABLE:
-            self._set_status("PyMuPDF not installed. Run: pip install pymupdf")
-            return
+            self._set_status("PyMuPDF not installed. Run: pip install pymupdf");  return
         if not PIL_AVAILABLE:
-            self._set_status("Pillow not installed. Run: pip install pillow")
-            return
+            self._set_status("Pillow not installed. Run: pip install pillow");    return
         try:
             self.pdf_doc      = fitz.open(path)
             self.pdf_path     = path
@@ -1234,11 +1148,8 @@ class MusicPlayer:
             self.zoom_level   = 1.0
             self.zoom_label.config(text="100%")
             self._render_page()
-            self._set_status(
-                f"Opened: {os.path.basename(path)} ({self.total_pages} pages)")
-            # Promote/add to dropdown list and refresh
+            self._set_status(f"Opened: {os.path.basename(path)} ({self.total_pages} pages)")
             self._add_pdf_to_list(path)
-            # Switch active panel to PDF automatically
             self._set_active_panel("pdf")
         except Exception as ex:
             self._set_status(f"Error opening PDF: {ex}")
@@ -1254,14 +1165,11 @@ class MusicPlayer:
         if not self.pdf_doc or not PYMUPDF_AVAILABLE or not PIL_AVAILABLE:
             return
         page = self.pdf_doc[self.current_page]
-        # Auto-fit: scale so the page fills the canvas width minus padding
         self.pdf_canvas.update_idletasks()
-        canvas_w = self.pdf_canvas.winfo_width() or (PDF_W - 20)
-        page_w   = page.rect.width  # points (1pt = 1/72in)
-        fit_scale = (canvas_w - 40) / page_w   # 20px pad each side
-        scale = max(0.25, min(4.0, fit_scale * self.zoom_level))
-        mat   = fitz.Matrix(scale, scale)
-        pix   = page.get_pixmap(matrix=mat, alpha=False)
+        canvas_w  = self.pdf_canvas.winfo_width() or (PDF_W - 20)
+        fit_scale = (canvas_w - 40) / page.rect.width
+        scale     = max(0.25, min(4.0, fit_scale * self.zoom_level))
+        pix   = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
         img   = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         photo = ImageTk.PhotoImage(img)
         self._pdf_img_ref = photo
@@ -1269,32 +1177,27 @@ class MusicPlayer:
         self.pdf_canvas.delete("all")
         self.pdf_canvas.create_image(pad, pad, anchor="nw", image=photo)
         self.pdf_canvas.configure(
-            scrollregion=(0, 0, img.width + pad * 2, img.height + pad * 2))
-        self.pdf_canvas.yview_moveto(0)
-        self.pdf_canvas.xview_moveto(0)
-        self.page_label.config(
-            text=f"{self.current_page + 1} / {self.total_pages}")
+            scrollregion=(0, 0, img.width + pad*2, img.height + pad*2))
+        self.pdf_canvas.yview_moveto(0);  self.pdf_canvas.xview_moveto(0)
+        self.page_label.config(text=f"{self.current_page + 1} / {self.total_pages}")
 
     def _pan_start(self, e):
         self._pan_last = (e.x, e.y)
 
     def _pan_move(self, e):
         if self._pan_last:
-            dx = self._pan_last[0] - e.x
-            dy = self._pan_last[1] - e.y
+            dx, dy = self._pan_last[0] - e.x, self._pan_last[1] - e.y
             self.pdf_canvas.xview_scroll(dx, "pixels")
             self.pdf_canvas.yview_scroll(dy, "pixels")
             self._pan_last = (e.x, e.y)
 
     def next_page(self):
         if self.pdf_doc and self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            self._render_page()
+            self.current_page += 1;  self._render_page()
 
     def prev_page(self):
         if self.pdf_doc and self.current_page > 0:
-            self.current_page -= 1
-            self._render_page()
+            self.current_page -= 1;  self._render_page()
 
     def zoom_in(self):
         if self.zoom_level < 4.0:
@@ -1308,7 +1211,7 @@ class MusicPlayer:
             self.zoom_label.config(text=f"{int(self.zoom_level * 100)}%")
             self._render_page()
 
-# ── Entry point ──────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = MusicPlayer(root)
