@@ -57,9 +57,9 @@ PDF_W    = 720
 WIN_H    = 960
 
 PDF_LIST = [
-    ("Lab Report",  "/home/agadkari/srdesign/Docs/lab_report.pdf"),
-    ("Datasheet",   "/home/agadkari/srdesign/Docs/datasheet.pdf"),
-    ("User Manual", "/home/agadkari/srdesign/Docs/manual.pdf"),
+    ("Lab Report",  "/home/agadkari/srdesign/PDFs/lab_report.pdf"),
+    ("Datasheet",   "/home/agadkari/srdesign/PDFs/datasheet.pdf"),
+    ("User Manual", "/home/agadkari/srdesign/PDFs/manual.pdf"),
 ]
 
 PLAYLIST = [
