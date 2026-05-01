@@ -255,7 +255,7 @@ class MusicPlayer:
         self.drag_bar.pack(fill="x")
         self.drag_bar.pack_propagate(False)
 
-        tk.Label(self.drag_bar, text="DELTA MUSIC", font=("Georgia", 11, "bold"),
+        tk.Label(self.drag_bar, text="SWIPEY", font=("Georgia", 11, "bold"),
                  bg=SURFACE, fg=ACCENT, pady=12).pack(side="left", padx=20)
 
         close_btn = tk.Label(self.drag_bar, text="✕", font=("Helvetica", 12),
@@ -303,7 +303,7 @@ class MusicPlayer:
                  bg=GUIDE_SURF, fg=GUIDE_ACCENT2,
                  pady=6).pack()
         tk.Label(hdr, text="TOUCHLESS CONTROL",
-                 font=("Helvetica", 7, "bold"),
+                 font=("Helvetica", 10, "bold"),
                  bg=GUIDE_SURF, fg=GUIDE_DIM).pack()
 
         # Decorative accent line
@@ -313,17 +313,17 @@ class MusicPlayer:
         col_hdr = tk.Frame(parent, bg="#130D1F")
         col_hdr.pack(fill="x")
         tk.Label(col_hdr, text="GESTURE",
-                 font=("Helvetica", 6, "bold"),
+                 font=("Helvetica", 8, "bold"),
                  bg="#130D1F", fg=GUIDE_ACCENT2,
-                 anchor="w", padx=8, pady=5, width=12).pack(side="left")
+                 anchor="w", padx=8, pady=5, width=15).pack(side="left")
         tk.Frame(col_hdr, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=2)
         tk.Label(col_hdr, text="🎵 MUSIC",
-                 font=("Helvetica", 6, "bold"),
+                 font=("Helvetica", 8, "bold"),
                  bg="#130D1F", fg=GUIDE_ACCENT,
                  anchor="w", padx=6, pady=5).pack(side="left", fill="x", expand=True)
         tk.Frame(col_hdr, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=2)
         tk.Label(col_hdr, text="📄 PDF",
-                 font=("Helvetica", 6, "bold"),
+                 font=("Helvetica", 8, "bold"),
                  bg="#130D1F", fg=PDF_ACC,
                  anchor="w", padx=6, pady=5).pack(side="left", fill="x", expand=True)
 
@@ -385,7 +385,7 @@ class MusicPlayer:
                      bg=row_bg, fg=g["color"],
                      anchor="center").pack(pady=(8, 0))
             tk.Label(left_block, text=g["name"],
-                     font=("Helvetica", 6, "bold"),
+                     font=("Helvetica", 8, "bold"),
                      bg=row_bg, fg=GUIDE_ACCENT2,
                      justify="center", anchor="center").pack(pady=(2, 8))
 
@@ -395,7 +395,7 @@ class MusicPlayer:
             music_block = tk.Frame(row_frame, bg=row_bg)
             music_block.pack(side="left", fill="both", expand=True)
             tk.Label(music_block, text=g["music"],
-                     font=("Helvetica", 7),
+                     font=("Helvetica", 8),
                      bg=row_bg, fg=TEXT_PRI,
                      justify="left", anchor="w",
                      padx=8, pady=10,
@@ -407,7 +407,7 @@ class MusicPlayer:
             pdf_block = tk.Frame(row_frame, bg=row_bg)
             pdf_block.pack(side="left", fill="both", expand=True)
             tk.Label(pdf_block, text=g["pdf"],
-                     font=("Helvetica", 7),
+                     font=("Helvetica", 8),
                      bg=row_bg, fg=TEXT_PRI,
                      justify="left", anchor="w",
                      padx=8, pady=10,
@@ -419,11 +419,11 @@ class MusicPlayer:
         note = tk.Frame(parent, bg="#110C1A", pady=6)
         note.pack(fill="x", padx=10, pady=(8, 0))
         tk.Label(note, text="★  HOLD = 3 seconds",
-                 font=("Helvetica", 7, "bold"),
+                 font=("Helvetica", 8, "bold"),
                  bg="#110C1A", fg=GUIDE_ACCENT2,
                  anchor="w", padx=8).pack(fill="x")
         tk.Label(note, text="Vol repeats every 0.6 s while held",
-                 font=("Helvetica", 6),
+                 font=("Helvetica", 8),
                  bg="#110C1A", fg=GUIDE_DIM,
                  anchor="w", padx=8).pack(fill="x")
 
@@ -431,7 +431,7 @@ class MusicPlayer:
         ctx = tk.Frame(parent, bg="#0E0A17", pady=6)
         ctx.pack(fill="x", padx=10, pady=(6, 0))
         tk.Label(ctx, text="When list is OPEN:",
-                 font=("Helvetica", 7, "bold"),
+                 font=("Helvetica", 8, "bold"),
                  bg="#0E0A17", fg=GUIDE_ACCENT,
                  anchor="w", padx=8).pack(fill="x")
         details = [
@@ -440,7 +440,7 @@ class MusicPlayer:
         ]
         for d in details:
             tk.Label(ctx, text=f"  {d}",
-                     font=("Helvetica", 6),
+                     font=("Helvetica", 8),
                      bg="#0E0A17", fg=GUIDE_DIM,
                      anchor="w", padx=8).pack(fill="x")
 
@@ -454,7 +454,7 @@ class MusicPlayer:
         status_color = "#4ADE80" if SENSORS_AVAILABLE else "#FACC15"
         status_text  = "● SENSORS LIVE" if SENSORS_AVAILABLE else "● DEMO MODE"
         tk.Label(pill, text=status_text,
-                 font=("Helvetica", 7, "bold"),
+                 font=("Helvetica", 8, "bold"),
                  bg=GUIDE_SURF, fg=status_color,
                  pady=8, anchor="center").pack(fill="x")
 
@@ -467,7 +467,7 @@ class MusicPlayer:
         self.status_label.pack(fill="x", side="bottom", padx=14, pady=4)
 
         self._music_tab = tk.Label(parent, text="● MUSIC PANEL",
-                                   font=("Helvetica", 7, "bold"), bg=SURFACE,
+                                   font=("Helvetica", 8, "bold"), bg=SURFACE,
                                    fg=TEXT_SEC, anchor="w", padx=12, pady=5, cursor="hand2")
         self._music_tab.pack(fill="x")
         self._music_tab.bind("<Button-1>", lambda e: self._set_active_panel("music"))
