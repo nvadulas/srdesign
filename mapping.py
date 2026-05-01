@@ -290,8 +290,7 @@ class MusicPlayer:
                  pady=6).pack()
         tk.Label(hdr, text="TOUCHLESS CONTROL",
                  font=("Helvetica", 7, "bold"),
-                 bg=GUIDE_SURF, fg=GUIDE_DIM,
-                 letterSpacing=3).pack()
+                 bg=GUIDE_SURF, fg=GUIDE_DIM).pack()
 
         # Decorative accent line
         tk.Frame(parent, bg=GUIDE_HEADER, height=2).pack(fill="x")
