@@ -63,7 +63,7 @@ SENSOR_HOLD       = "#C084FC"
 SENSOR_BORDER_OFF = "#2A2A35"
 SENSOR_BORDER_ON  = "#9B59D0"
 
-GUIDE_W  = 280
+GUIDE_W  = 380  # increased from 280
 PLAYER_W = 320
 PDF_W    = 1000
 WIN_H    = 1085
@@ -313,19 +313,19 @@ class MusicPlayer:
         col_hdr = tk.Frame(parent, bg="#130D1F")
         col_hdr.pack(fill="x")
         tk.Label(col_hdr, text="GESTURE",
-                 font=("Helvetica", 8, "bold"),
+                 font=("Helvetica", 9, "bold"),
                  bg="#130D1F", fg=GUIDE_ACCENT2,
-                 anchor="w", padx=8, pady=5, width=15).pack(side="left")
+                 anchor="w", padx=10, pady=6, width=14).pack(side="left")
         tk.Frame(col_hdr, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=2)
         tk.Label(col_hdr, text="🎵 MUSIC",
-                 font=("Helvetica", 8, "bold"),
+                 font=("Helvetica", 9, "bold"),
                  bg="#130D1F", fg=GUIDE_ACCENT,
-                 anchor="w", padx=6, pady=5).pack(side="left", fill="x", expand=True)
+                 anchor="w", padx=8, pady=6).pack(side="left", fill="x", expand=True)
         tk.Frame(col_hdr, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=2)
         tk.Label(col_hdr, text="📄 PDF",
-                 font=("Helvetica", 8, "bold"),
+                 font=("Helvetica", 9, "bold"),
                  bg="#130D1F", fg=PDF_ACC,
-                 anchor="w", padx=6, pady=5).pack(side="left", fill="x", expand=True)
+                 anchor="w", padx=8, pady=6).pack(side="left", fill="x", expand=True)
 
         tk.Frame(parent, bg=GUIDE_BORDER, height=1).pack(fill="x")
 
@@ -375,74 +375,74 @@ class MusicPlayer:
             row_frame = tk.Frame(parent, bg=row_bg)
             row_frame.pack(fill="x")
 
-            # Left: gesture name + symbol block
-            left_block = tk.Frame(row_frame, bg=row_bg, width=88)
+            # Left: gesture name + symbol block — wider now
+            left_block = tk.Frame(row_frame, bg=row_bg, width=108)
             left_block.pack(side="left", fill="y")
             left_block.pack_propagate(False)
 
             tk.Label(left_block, text=g["symbol"],
-                     font=("Helvetica", 16),
+                     font=("Helvetica", 18),
                      bg=row_bg, fg=g["color"],
-                     anchor="center").pack(pady=(8, 0))
+                     anchor="center").pack(pady=(10, 0))
             tk.Label(left_block, text=g["name"],
-                     font=("Helvetica", 8, "bold"),
+                     font=("Helvetica", 9, "bold"),
                      bg=row_bg, fg=GUIDE_ACCENT2,
-                     justify="center", anchor="center").pack(pady=(2, 8))
+                     justify="center", anchor="center").pack(pady=(3, 10))
 
             tk.Frame(row_frame, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=4)
 
-            # Middle: music action
+            # Middle: music action — more wrap space
             music_block = tk.Frame(row_frame, bg=row_bg)
             music_block.pack(side="left", fill="both", expand=True)
             tk.Label(music_block, text=g["music"],
-                     font=("Helvetica", 8),
+                     font=("Helvetica", 9),
                      bg=row_bg, fg=TEXT_PRI,
                      justify="left", anchor="w",
-                     padx=8, pady=10,
-                     wraplength=84).pack(fill="x")
+                     padx=10, pady=12,
+                     wraplength=110).pack(fill="x")
 
             tk.Frame(row_frame, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=4)
 
-            # Right: pdf action
+            # Right: pdf action — more wrap space
             pdf_block = tk.Frame(row_frame, bg=row_bg)
             pdf_block.pack(side="left", fill="both", expand=True)
             tk.Label(pdf_block, text=g["pdf"],
-                     font=("Helvetica", 8),
+                     font=("Helvetica", 9),
                      bg=row_bg, fg=TEXT_PRI,
                      justify="left", anchor="w",
-                     padx=8, pady=10,
-                     wraplength=84).pack(fill="x")
+                     padx=10, pady=12,
+                     wraplength=110).pack(fill="x")
 
             tk.Frame(parent, bg=GUIDE_BORDER, height=1).pack(fill="x")
 
         # ── Hold-open note ────────────────────────────────────────────────────
-        note = tk.Frame(parent, bg="#110C1A", pady=6)
-        note.pack(fill="x", padx=10, pady=(8, 0))
+        note = tk.Frame(parent, bg="#110C1A", pady=8)
+        note.pack(fill="x", padx=12, pady=(10, 0))
         tk.Label(note, text="★  HOLD = 3 seconds",
-                 font=("Helvetica", 8, "bold"),
+                 font=("Helvetica", 9, "bold"),
                  bg="#110C1A", fg=GUIDE_ACCENT2,
-                 anchor="w", padx=8).pack(fill="x")
+                 anchor="w", padx=10).pack(fill="x")
         tk.Label(note, text="Vol repeats every 0.6 s while held",
-                 font=("Helvetica", 8),
+                 font=("Helvetica", 9),
                  bg="#110C1A", fg=GUIDE_DIM,
-                 anchor="w", padx=8).pack(fill="x")
+                 anchor="w", padx=10).pack(fill="x")
 
         # ── Context note: list-open behaviour ─────────────────────────────────
-        ctx = tk.Frame(parent, bg="#0E0A17", pady=6)
-        ctx.pack(fill="x", padx=10, pady=(6, 0))
+        ctx = tk.Frame(parent, bg="#0E0A17", pady=8)
+        ctx.pack(fill="x", padx=12, pady=(8, 0))
         tk.Label(ctx, text="When list is OPEN:",
-                 font=("Helvetica", 8, "bold"),
+                 font=("Helvetica", 9, "bold"),
                  bg="#0E0A17", fg=GUIDE_ACCENT,
-                 anchor="w", padx=8).pack(fill="x")
+                 anchor="w", padx=10).pack(fill="x")
         details = [
             "Hold L/R  →  scroll list up/down",
             "Hold Both  →  confirm selection",
         ]
         for d in details:
             tk.Label(ctx, text=f"  {d}",
-                     font=("Helvetica", 8),
+                     font=("Helvetica", 9),
                      bg="#0E0A17", fg=GUIDE_DIM,
-                     anchor="w", padx=8).pack(fill="x")
+                     anchor="w", padx=10).pack(fill="x")
 
         # ── Sensor live status pill at bottom ─────────────────────────────────
         spacer = tk.Frame(parent, bg=GUIDE_BG)
@@ -454,9 +454,9 @@ class MusicPlayer:
         status_color = "#4ADE80" if SENSORS_AVAILABLE else "#FACC15"
         status_text  = "● SENSORS LIVE" if SENSORS_AVAILABLE else "● DEMO MODE"
         tk.Label(pill, text=status_text,
-                 font=("Helvetica", 8, "bold"),
+                 font=("Helvetica", 9, "bold"),
                  bg=GUIDE_SURF, fg=status_color,
-                 pady=8, anchor="center").pack(fill="x")
+                 pady=10, anchor="center").pack(fill="x")
 
     # ── Player panel ──────────────────────────────────────────────────────────
     def _build_player(self, parent):
