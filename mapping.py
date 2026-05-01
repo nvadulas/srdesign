@@ -28,7 +28,6 @@ try:
 except (ImportError, NotImplementedError):
     SENSORS_AVAILABLE = False
 
-# ── Colour palette (all-purple) ───────────────────────────────────────────────
 BG        = "#0D0D0F"
 SURFACE   = "#161619"
 BORDER    = "#2A2A30"
@@ -43,16 +42,6 @@ PDF_BG    = "#12121A"
 PDF_SURF  = "#1A1A24"
 PDF_ACC   = "#9B6FD4"
 
-# Gesture panel colours
-GUIDE_BG       = "#0A0A10"
-GUIDE_SURF     = "#12121C"
-GUIDE_BORDER   = "#3D1F6B"
-GUIDE_ACCENT   = "#9B59D0"
-GUIDE_ACCENT2  = "#C084FC"
-GUIDE_DIM      = "#6B4E8A"
-GUIDE_HEADER   = "#7C3AED"
-GUIDE_ROW_ALT  = "#0F0F18"
-
 PANEL_ACTIVE_BORDER   = "#6F2DA8"
 PANEL_INACTIVE_BORDER = "#2A2A30"
 
@@ -63,7 +52,6 @@ SENSOR_HOLD       = "#C084FC"
 SENSOR_BORDER_OFF = "#2A2A35"
 SENSOR_BORDER_ON  = "#9B59D0"
 
-GUIDE_W  = 280
 PLAYER_W = 320
 PDF_W    = 1000
 WIN_H    = 1085
@@ -71,8 +59,8 @@ WIN_H    = 1085
 PDF_LIST = [
     ("Datasheet",  "/home/agadkari/srdesign/PDFs/datasheet.pdf"),
     ("Homework",   "/home/agadkari/srdesign/PDFs/hw.pdf"),
-    ("NPB",        "/home/agadkari/srdesign/PDFs/npb.pdf"),
-    ("Resume",     "/home/agadkari/srdesign/PDFs/resume.pdf"),
+    ("NPB", "/home/agadkari/srdesign/PDFs/npb.pdf"),
+    ("Resume", "/home/agadkari/srdesign/PDFs/resume.pdf"),
 ]
 
 PLAYLIST = [
@@ -152,7 +140,7 @@ class MusicPlayer:
     def __init__(self, root):
         self.root = root
         self.root.title("Delta Music Player")
-        self.root.geometry(f"{GUIDE_W + PLAYER_W + PDF_W}x{WIN_H}")
+        self.root.geometry(f"{PLAYER_W + PDF_W}x{WIN_H}")
         self.root.resizable(False, False)
         self.root.configure(bg=BG)
 
@@ -199,9 +187,9 @@ class MusicPlayer:
 
     def _remove_title_bar(self):
         self.root.overrideredirect(True)
-        self.drag_bar.bind("<ButtonPress-1>",  self._start_drag)
-        self.drag_bar.bind("<B1-Motion>",      self._do_drag)
-        self.drag_bar.bind("<ButtonRelease-1>", self._stop_drag)
+        self.drag_bar.bind("<ButtonPress-1>",   self._start_drag)
+        self.drag_bar.bind("<B1-Motion>",        self._do_drag)
+        self.drag_bar.bind("<ButtonRelease-1>",  self._stop_drag)
 
     def _start_drag(self, e):
         self._drag_start = (e.x_root - self.root.winfo_x(),
@@ -215,7 +203,7 @@ class MusicPlayer:
     def _stop_drag(self, e):
         self._drag_start = None
 
-    # ── Active panel ──────────────────────────────────────────────────────────
+    # ── Active panel ─────────────────────────────────────────────────────────
     def _set_active_panel(self, panel):
         self._active_panel = panel
         self._update_panel_indicators()
@@ -256,195 +244,20 @@ class MusicPlayer:
         content = tk.Frame(self.root, bg=BG)
         content.pack(fill="both", expand=True)
 
-        # ── Gesture guide panel (leftmost) ────────────────────────────────────
-        guide = tk.Frame(content, bg=GUIDE_BG, width=GUIDE_W)
-        guide.pack(side="left", fill="y")
-        guide.pack_propagate(False)
-        tk.Frame(content, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y")
-
-        # ── Music player panel ────────────────────────────────────────────────
         left = tk.Frame(content, bg=BG, width=PLAYER_W)
         left.pack(side="left", fill="y")
         left.pack_propagate(False)
+
         tk.Frame(content, bg=BORDER, width=1).pack(side="left", fill="y")
 
-        # ── PDF panel ─────────────────────────────────────────────────────────
         right = tk.Frame(content, bg=PDF_BG, width=PDF_W)
         right.pack(side="left", fill="both", expand=True)
         right.pack_propagate(False)
 
-        self._build_gesture_guide(guide)
         self._build_player(left)
         self._build_pdf_panel(right)
 
-    # ── Gesture guide panel ───────────────────────────────────────────────────
-    def _build_gesture_guide(self, parent):
-        # Header
-        hdr = tk.Frame(parent, bg=GUIDE_SURF, height=60)
-        hdr.pack(fill="x")
-        hdr.pack_propagate(False)
-
-        tk.Label(hdr, text="GESTURE GUIDE",
-                 font=("Georgia", 12, "bold"),
-                 bg=GUIDE_SURF, fg=GUIDE_ACCENT2,
-                 pady=6).pack()
-        tk.Label(hdr, text="TOUCHLESS CONTROL",
-                 font=("Helvetica", 7, "bold"),
-                 bg=GUIDE_SURF, fg=GUIDE_DIM).pack()
-
-        # Decorative accent line
-        tk.Frame(parent, bg=GUIDE_HEADER, height=2).pack(fill="x")
-
-        # Column headers
-        col_hdr = tk.Frame(parent, bg="#130D1F")
-        col_hdr.pack(fill="x")
-        tk.Label(col_hdr, text="GESTURE",
-                 font=("Helvetica", 6, "bold"),
-                 bg="#130D1F", fg=GUIDE_ACCENT2,
-                 anchor="w", padx=8, pady=5, width=12).pack(side="left")
-        tk.Frame(col_hdr, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=2)
-        tk.Label(col_hdr, text="🎵 MUSIC",
-                 font=("Helvetica", 6, "bold"),
-                 bg="#130D1F", fg=GUIDE_ACCENT,
-                 anchor="w", padx=6, pady=5).pack(side="left", fill="x", expand=True)
-        tk.Frame(col_hdr, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=2)
-        tk.Label(col_hdr, text="📄 PDF",
-                 font=("Helvetica", 6, "bold"),
-                 bg="#130D1F", fg=PDF_ACC,
-                 anchor="w", padx=6, pady=5).pack(side="left", fill="x", expand=True)
-
-        tk.Frame(parent, bg=GUIDE_BORDER, height=1).pack(fill="x")
-
-        # Gesture rows data
-        gestures = [
-            {
-                "name":   "SWIPE\nR → L",
-                "symbol": "✋←",
-                "music":  "Open / Close\nPlaylist",
-                "pdf":    "Open / Close\nPDF list",
-                "color":  GUIDE_ACCENT,
-            },
-            {
-                "name":   "SWIPE\nL → R",
-                "symbol": "→✋",
-                "music":  "Switch to\nPDF panel",
-                "pdf":    "Switch to\nMusic Panel",
-                "color":  GUIDE_ACCENT,
-            },
-            {
-                "name":   "HOLD\nLEFT",
-                "symbol": "✋|",
-                "music":  "Vol ▲\nPlaylist: prev",
-                "pdf":    "Prev page\nPDFs: prev",
-                "color":  GUIDE_ACCENT2,
-            },
-            {
-                "name":   "HOLD\nRIGHT",
-                "symbol": "|✋",
-                "music":  "Vol ▼\nPlaylist: next",
-                "pdf":    "Next page\nPDFs: next",
-                "color":  GUIDE_ACCENT2,
-            },
-            {
-                "name":   "HOLD\nBOTH",
-                "symbol": "✋✋",
-                "music":  "Stop / Play\nConfirm track",
-                "pdf":    "Zoom Reset\nConfirm PDF",
-                "color":  "#C084FC",
-            },
-        ]
-
-        for i, g in enumerate(gestures):
-            row_bg = GUIDE_BG if i % 2 == 0 else GUIDE_ROW_ALT
-
-            # Outer row frame
-            row_frame = tk.Frame(parent, bg=row_bg)
-            row_frame.pack(fill="x")
-
-            # Left: gesture name + symbol block
-            left_block = tk.Frame(row_frame, bg=row_bg, width=88)
-            left_block.pack(side="left", fill="y")
-            left_block.pack_propagate(False)
-
-            tk.Label(left_block, text=g["symbol"],
-                     font=("Helvetica", 16),
-                     bg=row_bg, fg=g["color"],
-                     anchor="center").pack(pady=(8, 0))
-            tk.Label(left_block, text=g["name"],
-                     font=("Helvetica", 6, "bold"),
-                     bg=row_bg, fg=GUIDE_ACCENT2,
-                     justify="center", anchor="center").pack(pady=(2, 8))
-
-            tk.Frame(row_frame, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=4)
-
-            # Middle: music action
-            music_block = tk.Frame(row_frame, bg=row_bg)
-            music_block.pack(side="left", fill="both", expand=True)
-            tk.Label(music_block, text=g["music"],
-                     font=("Helvetica", 7),
-                     bg=row_bg, fg=TEXT_PRI,
-                     justify="left", anchor="w",
-                     padx=8, pady=10,
-                     wraplength=84).pack(fill="x")
-
-            tk.Frame(row_frame, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=4)
-
-            # Right: pdf action
-            pdf_block = tk.Frame(row_frame, bg=row_bg)
-            pdf_block.pack(side="left", fill="both", expand=True)
-            tk.Label(pdf_block, text=g["pdf"],
-                     font=("Helvetica", 7),
-                     bg=row_bg, fg=TEXT_PRI,
-                     justify="left", anchor="w",
-                     padx=8, pady=10,
-                     wraplength=84).pack(fill="x")
-
-            tk.Frame(parent, bg=GUIDE_BORDER, height=1).pack(fill="x")
-
-        # ── Hold-open note ────────────────────────────────────────────────────
-        note = tk.Frame(parent, bg="#110C1A", pady=6)
-        note.pack(fill="x", padx=10, pady=(8, 0))
-        tk.Label(note, text="★  HOLD = 3 seconds",
-                 font=("Helvetica", 7, "bold"),
-                 bg="#110C1A", fg=GUIDE_ACCENT2,
-                 anchor="w", padx=8).pack(fill="x")
-        tk.Label(note, text="Vol repeats every 0.6 s while held",
-                 font=("Helvetica", 6),
-                 bg="#110C1A", fg=GUIDE_DIM,
-                 anchor="w", padx=8).pack(fill="x")
-
-        # ── Context note: list-open behaviour ─────────────────────────────────
-        ctx = tk.Frame(parent, bg="#0E0A17", pady=6)
-        ctx.pack(fill="x", padx=10, pady=(6, 0))
-        tk.Label(ctx, text="When list is OPEN:",
-                 font=("Helvetica", 7, "bold"),
-                 bg="#0E0A17", fg=GUIDE_ACCENT,
-                 anchor="w", padx=8).pack(fill="x")
-        details = [
-            "Hold L/R  →  scroll list up/down",
-            "Hold Both  →  confirm selection",
-        ]
-        for d in details:
-            tk.Label(ctx, text=f"  {d}",
-                     font=("Helvetica", 6),
-                     bg="#0E0A17", fg=GUIDE_DIM,
-                     anchor="w", padx=8).pack(fill="x")
-
-        # ── Sensor live status pill at bottom ─────────────────────────────────
-        spacer = tk.Frame(parent, bg=GUIDE_BG)
-        spacer.pack(fill="both", expand=True)
-
-        pill = tk.Frame(parent, bg=GUIDE_SURF)
-        pill.pack(fill="x", side="bottom")
-        tk.Frame(pill, bg=GUIDE_BORDER, height=1).pack(fill="x")
-        status_color = "#4ADE80" if SENSORS_AVAILABLE else "#FACC15"
-        status_text  = "● SENSORS LIVE" if SENSORS_AVAILABLE else "● DEMO MODE"
-        tk.Label(pill, text=status_text,
-                 font=("Helvetica", 7, "bold"),
-                 bg=GUIDE_SURF, fg=status_color,
-                 pady=8, anchor="center").pack(fill="x")
-
-    # ── Player panel ──────────────────────────────────────────────────────────
+    # ── Player panel ─────────────────────────────────────────────────────────
     def _build_player(self, parent):
         self._build_sensor_panel(parent)
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", side="bottom")
@@ -656,7 +469,7 @@ class MusicPlayer:
         self._set_volume(self._volume - VOLUME_STEP)
         self._set_status(f"Volume: {self._volume}%")
 
-    # ── Sensor panel (compact — no table, guide panel handles that) ───────────
+    # ── Sensor panel ─────────────────────────────────────────────────────────
     def _build_sensor_panel(self, parent):
         panel = tk.Frame(parent, bg=SURFACE)
         panel.pack(fill="x", side="bottom")
@@ -678,8 +491,46 @@ class MusicPlayer:
 
         self._gesture_strip = tk.Label(panel, text="Waiting for gesture…",
                                        font=("Helvetica", 8, "bold"), bg="#0F0F15",
-                                       fg=TEXT_SEC, pady=6, anchor="center")
-        self._gesture_strip.pack(fill="x", padx=12, pady=(0, 8))
+                                       fg=TEXT_SEC, pady=4, anchor="center")
+        self._gesture_strip.pack(fill="x", padx=12, pady=(0, 4))
+
+        tbl_outer = tk.Frame(panel, bg=SURFACE)
+        tbl_outer.pack(fill="x", padx=12, pady=(0, 8))
+
+        hdr_row = tk.Frame(tbl_outer, bg="#1E1830")
+        hdr_row.pack(fill="x")
+        tk.Label(hdr_row, text="GESTURE", font=("Helvetica", 6, "bold"),
+                 bg="#1E1830", fg=ACCENT2, anchor="w", width=16, padx=6, pady=4).pack(side="left")
+        tk.Frame(hdr_row, bg=BORDER, width=1).pack(side="left", fill="y")
+        tk.Label(hdr_row, text="🎵  MUSIC PANEL", font=("Helvetica", 6, "bold"),
+                 bg="#1E1830", fg="#C084FC", anchor="w", width=18, padx=6).pack(side="left")
+        tk.Frame(hdr_row, bg=BORDER, width=1).pack(side="left", fill="y")
+        tk.Label(hdr_row, text="📄  PDF PANEL", font=("Helvetica", 6, "bold"),
+                 bg="#1E1830", fg=PDF_ACC, anchor="w", padx=6).pack(side="left", fill="x", expand=True)
+
+        tk.Frame(tbl_outer, bg=ACCENT, height=1).pack(fill="x")
+
+        # Table reflects the full closed|open mapping
+        rows = [
+            ("← Swipe  R→L",  "Open/Close Playlist",         "Open/Close PDF list"),
+            ("→ Swipe  L→R",  "Switch to PDF panel",          "Switch to Music panel"),
+            ("✋ Hold Left",    "Vol ▲  |  Playlist: prev",    "Prev page  |  PDFs: prev"),
+            ("✋ Hold Right",   "Vol ▼  |  Playlist: next",    "Next page  |  PDFs: next"),
+            ("✋ Hold Both",    "Stop/Play  |  Confirm track", "Zoom reset  |  Confirm PDF"),
+        ]
+        for i, (gesture, music_action, pdf_action) in enumerate(rows):
+            row_bg = BG if i % 2 == 0 else "#111118"
+            row = tk.Frame(tbl_outer, bg=row_bg)
+            row.pack(fill="x")
+            tk.Label(row, text=gesture, font=("Helvetica", 6, "bold"),
+                     bg=row_bg, fg=ACCENT2, anchor="w", width=16, padx=6, pady=4).pack(side="left")
+            tk.Frame(row, bg=BORDER, width=1).pack(side="left", fill="y")
+            tk.Label(row, text=music_action, font=("Helvetica", 6),
+                     bg=row_bg, fg=TEXT_PRI, anchor="w", width=18, padx=6).pack(side="left")
+            tk.Frame(row, bg=BORDER, width=1).pack(side="left", fill="y")
+            tk.Label(row, text=pdf_action, font=("Helvetica", 6),
+                     bg=row_bg, fg=TEXT_PRI, anchor="w", padx=6).pack(side="left", fill="x", expand=True)
+            tk.Frame(tbl_outer, bg=BORDER, height=1).pack(fill="x")
 
     def _make_sensor_box(self, parent, label_text):
         box = tk.Frame(parent, bg=SENSOR_OFF,
@@ -752,6 +603,7 @@ class MusicPlayer:
             self.root.after(0, lambda rp=right_present, dr=dist_r:
                 self._set_sensor_state(self._right_box, "on" if rp else "off", dr))
 
+            # Hold both
             if left_present and right_present:
                 if hold_both_start is None:
                     hold_both_start = now
@@ -763,6 +615,7 @@ class MusicPlayer:
             else:
                 hold_both_start = None;  hold_both_fired = False
 
+            # Hold left
             if left_present and not right_present:
                 if hold_left_start is None:
                     hold_left_start = vol_left_last_repeat = now
@@ -780,6 +633,7 @@ class MusicPlayer:
             else:
                 hold_left_start = None;  hold_left_fired = False
 
+            # Hold right
             if right_present and not left_present:
                 if hold_right_start is None:
                     hold_right_start = vol_right_last_repeat = now
@@ -797,6 +651,7 @@ class MusicPlayer:
             else:
                 hold_right_start = None;  hold_right_fired = False
 
+            # Swipe detection
             if swipe_stage == 0 or swipe_stage is None:
                 swipe_stage = 0
                 if left_present and (not right_present or left < right - DOMINANCE_MM):
@@ -835,7 +690,16 @@ class MusicPlayer:
                 self._set_sensor_state(self._right_box, "on" if rp_ else "off", dr_))
             time.sleep(1.2)
 
-    # ── Gesture handlers ──────────────────────────────────────────────────────
+    # ── Gesture handlers ─────────────────────────────────────────────────────
+    # Swipe R→L : open/close playlist OR pdf list
+    # Swipe L→R : switch panel
+    #
+    # MUSIC closed : Hold L = Vol▲  |  Hold R = Vol▼  |  Hold Both = Stop/Play
+    # MUSIC open   : Hold L = prev  |  Hold R = next   |  Hold Both = Confirm
+    #
+    # PDF closed   : Hold L = Prev page  |  Hold R = Next page  |  Hold Both = Zoom reset
+    # PDF open     : Hold L = PDFs prev  |  Hold R = PDFs next  |  Hold Both = Confirm PDF
+
     def _on_gesture_swipe_lr(self):
         self._toggle_active_panel()
 
@@ -874,13 +738,14 @@ class MusicPlayer:
         if self._active_panel == "pdf":
             if self._pdf_list_open:
                 self._load_pdf_by_idx(self._pdf_list_idx)
-                self._toggle_pdf_list()
+                self._toggle_pdf_list()          # close list after confirming
             else:
                 self._pdf_zoom_reset()
         elif self._playlist_open:
             self._load_track_by_idx(self._playlist_idx)
             self._close_playlist()
         else:
+            # Toggle stop / play
             if PYGAME_AVAILABLE and mixer.music.get_busy():
                 self.stop_music()
                 self._set_status("Music stopped")
@@ -929,6 +794,7 @@ class MusicPlayer:
             self._set_status(f"PDF: {self._recent_pdfs[self._pdf_list_idx][0]}")
 
     def _set_pdf_list_highlight(self, idx):
+        """Purple = gesture cursor; tinted = currently loaded PDF."""
         for i, (row, num, name_lbl) in enumerate(self._pdf_row_widgets):
             is_loaded = (self._recent_pdfs[i][1] == self.pdf_path)
             if i == idx:
@@ -1043,7 +909,7 @@ class MusicPlayer:
 
         self._draw_pdf_placeholder()
 
-    # ── PDF file list dropdown ─────────────────────────────────────────────────
+    # ── PDF file list dropdown ────────────────────────────────────────────────
     def _build_pdf_list(self, parent):
         BODY_H, HEADER_H = 100, 34
 
