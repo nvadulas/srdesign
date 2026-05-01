@@ -157,7 +157,10 @@ class MusicPlayer:
         self.root.configure(bg=BG)
 
         if PYGAME_AVAILABLE:
-            mixer.init()
+            try:
+                mixer.init()
+            except Exception as e:
+                print(f"[Audio] mixer.init() failed: {e}")
 
         self.current_file = None
         self.paused       = False
@@ -192,6 +195,17 @@ class MusicPlayer:
             threading.Thread(target=self._demo_sensor_loop, daemon=True).start()
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Pre-select first track so play button works immediately
+        if PLAYLIST:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            name, fpath = PLAYLIST[0]
+            full = fpath if os.path.isabs(fpath) else os.path.join(script_dir, fpath)
+            self.current_file = full
+            self.track_label.config(text=name)
+            self.sub_label.config(text="MP3 file")
+            self._playlist_idx = 0
+            self._set_playlist_highlight(0)
 
     def _on_close(self):
         self._gesture_running = False
@@ -1234,24 +1248,56 @@ class MusicPlayer:
             self._set_playlist_highlight(self._playlist_idx)
 
     def play_music(self):
-        if not PYGAME_AVAILABLE or not self.current_file:
+        if not PYGAME_AVAILABLE:
+            self._set_status("pygame not available — install with: pip install pygame")
             return
-        if self.paused:
-            mixer.music.unpause();  self.paused = False
-        else:
-            mixer.music.load(self.current_file);  mixer.music.play()
+        if not self.current_file:
+            # Auto-load first track if nothing selected yet
+            if PLAYLIST:
+                self._load_track_by_idx(0)
+            else:
+                self._set_status("No track selected — open the playlist first")
+            return
+        if not os.path.exists(self.current_file):
+            self._set_status(f"File not found: {os.path.basename(self.current_file)}")
+            return
+        try:
+            if self.paused:
+                mixer.music.unpause()
+                self.paused = False
+                self._set_status(f"Resumed: {self.track_label.cget('text')}")
+            else:
+                mixer.music.load(self.current_file)
+                mixer.music.set_volume(self._volume / 100)
+                mixer.music.play()
+                self._set_status(f"Playing: {self.track_label.cget('text')}")
+        except Exception as e:
+            self._set_status(f"Playback error: {e}")
+            print(f"[Audio] play error: {e}")
 
     def pause_music(self):
         if not PYGAME_AVAILABLE:
             return
-        if not self.paused:
-            mixer.music.pause();    self.paused = True
-        else:
-            mixer.music.unpause();  self.paused = False
+        try:
+            if not self.paused:
+                mixer.music.pause()
+                self.paused = True
+                self._set_status("Paused")
+            else:
+                mixer.music.unpause()
+                self.paused = False
+                self._set_status(f"Resumed: {self.track_label.cget('text')}")
+        except Exception as e:
+            self._set_status(f"Pause error: {e}")
 
     def stop_music(self):
         if PYGAME_AVAILABLE:
-            mixer.music.stop();  self.paused = False
+            try:
+                mixer.music.stop()
+            except Exception:
+                pass
+            self.paused = False
+            self._set_status("Stopped")
 
     def set_volume(self, value):
         if PYGAME_AVAILABLE:
