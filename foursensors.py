@@ -285,7 +285,7 @@ class MusicPlayer:
         self.drag_bar.pack(fill="x")
         self.drag_bar.pack_propagate(False)
 
-        tk.Label(self.drag_bar, text="SWIPEY", font=("Georgia", 13, "bold"),
+        tk.Label(self.drag_bar, text="DELTA WAVE", font=("Georgia", 13, "bold"),
                  bg=SURFACE, fg=ACCENT, pady=12).pack(side="left", padx=20)
 
         close_btn = tk.Label(self.drag_bar, text="✕", font=("Helvetica", 14),
