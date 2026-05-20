@@ -61,7 +61,7 @@ SENSOR_BORDER_ON  = "#9B59D0"
 GUIDE_W  = 420
 PLAYER_W = 360
 PDF_W    = 1120
-WIN_H    = 1000
+WIN_H    = 1070
 
 PDF_LIST = [
     ("Datasheet", "/home/agadkari/srdesign/PDFs/datasheet.pdf"),
