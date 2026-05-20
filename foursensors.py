@@ -191,6 +191,8 @@ class MusicPlayer:
 
         self.root.geometry(f"{scr_w}x{scr_h}+0+0")
         self.root.resizable(False, False)
+        self.root.overrideredirect(True)              # remove OS title bar
+        self.root.wm_attributes("-fullscreen", True)  # cover taskbar completely
         self.root.deiconify()
         # ──────────────────────────────────────────────────────────────────
 
@@ -251,22 +253,13 @@ class MusicPlayer:
         self.root.destroy()
 
     def _remove_title_bar(self):
-        self.root.overrideredirect(True)
-        self.drag_bar.bind("<ButtonPress-1>",   self._start_drag)
-        self.drag_bar.bind("<B1-Motion>",       self._do_drag)
-        self.drag_bar.bind("<ButtonRelease-1>", self._stop_drag)
+        # overrideredirect + fullscreen already applied in __init__
+        # No drag needed — window is pinned fullscreen
+        pass
 
-    def _start_drag(self, e):
-        self._drag_start = (e.x_root - self.root.winfo_x(),
-                            e.y_root - self.root.winfo_y())
-
-    def _do_drag(self, e):
-        if self._drag_start:
-            self.root.geometry(
-                f"+{e.x_root-self._drag_start[0]}+{e.y_root-self._drag_start[1]}")
-
-    def _stop_drag(self, e):
-        self._drag_start = None
+    def _start_drag(self, e): pass
+    def _do_drag(self, e):    pass
+    def _stop_drag(self, e):  pass
 
     def _set_active_panel(self, panel):
         self._active_panel = panel
@@ -292,7 +285,7 @@ class MusicPlayer:
         self.drag_bar.pack(fill="x")
         self.drag_bar.pack_propagate(False)
 
-        tk.Label(self.drag_bar, text="DELTA WAVE", font=("Georgia", 13, "bold"),
+        tk.Label(self.drag_bar, text="SWIPEY", font=("Georgia", 13, "bold"),
                  bg=SURFACE, fg=ACCENT, pady=12).pack(side="left", padx=20)
 
         close_btn = tk.Label(self.drag_bar, text="✕", font=("Helvetica", 14),
