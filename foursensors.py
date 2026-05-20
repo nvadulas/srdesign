@@ -28,7 +28,6 @@ try:
 except (ImportError, NotImplementedError):
     SENSORS_AVAILABLE = False
 
-# ── Colour palette ────────────────────────────────────────────────────────────
 BG        = "#0D0D0F"
 SURFACE   = "#161619"
 BORDER    = "#2A2A30"
@@ -79,16 +78,10 @@ PLAYLIST = [
     ("Action", "/home/agadkari/srdesign/Music/action.mp3"),
 ]
 
-# ── Sensor pins ───────────────────────────────────────────────────────────────
-# Physical placement on cube:
-#   TOP    = top face      (D22)
-#   BOTTOM = front face    (D23)  [or bottom face — whichever you wire]
-#   LEFT   = left side     (D17)
-#   RIGHT  = right side    (D27)
 XSHUT_LEFT_PIN   = None
 XSHUT_RIGHT_PIN  = None
 XSHUT_TOP_PIN    = None
-XSHUT_BOTTOM_PIN = None
+XSHUT_CENTER_PIN = None
 
 PRESENT_MM    = 300
 DOMINANCE_MM  = 40
@@ -99,17 +92,16 @@ NO_READING    = 65535
 VOLUME_STEP            = 5
 VOLUME_HOLD_REPEAT_SEC = 0.6
 
-# I2C addresses — must all be unique
 ADDR_LEFT   = 0x30
 ADDR_RIGHT  = 0x31
 ADDR_TOP    = 0x32
-ADDR_BOTTOM = 0x33
+ADDR_CENTER = 0x33
 
 if SENSORS_AVAILABLE:
     XSHUT_LEFT_PIN   = board.D17
     XSHUT_RIGHT_PIN  = board.D27
     XSHUT_TOP_PIN    = board.D22
-    XSHUT_BOTTOM_PIN = board.D23
+    XSHUT_CENTER_PIN = board.D23
 
 
 def _make_xshut(pin):
@@ -119,7 +111,6 @@ def _make_xshut(pin):
 
 
 def _boot_sensor(i2c, xshut, new_addr):
-    """Enable one sensor (xshut already HIGH), assign new_addr, return sensor."""
     xshut.value = True
     time.sleep(0.3)
     sensor = adafruit_vl53l1x.VL53L1X(i2c)
@@ -131,14 +122,12 @@ def _boot_sensor(i2c, xshut, new_addr):
 
 
 def init_sensors():
-    """Boot all four sensors onto unique I2C addresses."""
     xs_left   = _make_xshut(XSHUT_LEFT_PIN)
     xs_right  = _make_xshut(XSHUT_RIGHT_PIN)
     xs_top    = _make_xshut(XSHUT_TOP_PIN)
-    xs_bottom = _make_xshut(XSHUT_BOTTOM_PIN)
+    xs_center = _make_xshut(XSHUT_CENTER_PIN)
 
-    # Pull all XSHUT lines low so every sensor resets to default 0x29
-    for x in (xs_left, xs_right, xs_top, xs_bottom):
+    for x in (xs_left, xs_right, xs_top, xs_center):
         x.value = False
     time.sleep(0.5)
 
@@ -147,21 +136,20 @@ def init_sensors():
     sensor_left   = _boot_sensor(i2c, xs_left,   ADDR_LEFT)
     sensor_right  = _boot_sensor(i2c, xs_right,  ADDR_RIGHT)
     sensor_top    = _boot_sensor(i2c, xs_top,    ADDR_TOP)
-    sensor_bottom = _boot_sensor(i2c, xs_bottom, ADDR_BOTTOM)
+    sensor_center = _boot_sensor(i2c, xs_center, ADDR_CENTER)
 
-    # Re-connect with final addresses (Adafruit library caches address)
     i2c.deinit()
     time.sleep(0.3)
     i2c = busio.I2C(board.SCL, board.SDA)
     sensor_left   = adafruit_vl53l1x.VL53L1X(i2c, address=ADDR_LEFT)
     sensor_right  = adafruit_vl53l1x.VL53L1X(i2c, address=ADDR_RIGHT)
     sensor_top    = adafruit_vl53l1x.VL53L1X(i2c, address=ADDR_TOP)
-    sensor_bottom = adafruit_vl53l1x.VL53L1X(i2c, address=ADDR_BOTTOM)
-    for s in (sensor_left, sensor_right, sensor_top, sensor_bottom):
+    sensor_center = adafruit_vl53l1x.VL53L1X(i2c, address=ADDR_CENTER)
+    for s in (sensor_left, sensor_right, sensor_top, sensor_center):
         s.distance_mode = 1
         s.timing_budget = 50
 
-    return sensor_left, sensor_right, sensor_top, sensor_bottom
+    return sensor_left, sensor_right, sensor_top, sensor_center
 
 
 def read_one(sensor):
@@ -181,7 +169,6 @@ def read_one(sensor):
         return NO_READING
 
 
-# ═════════════════════════════════════════════════════════════════════════════
 class MusicPlayer:
     def __init__(self, root):
         self.root = root
@@ -262,7 +249,6 @@ class MusicPlayer:
     def _stop_drag(self, e):
         self._drag_start = None
 
-    # ── Active panel ──────────────────────────────────────────────────────────
     def _set_active_panel(self, panel):
         self._active_panel = panel
         self._update_panel_indicators()
@@ -282,7 +268,6 @@ class MusicPlayer:
             self._music_tab.config(bg=SURFACE, fg=TEXT_SEC)
             self._pdf_tab.config(bg=ACCENT, fg=ACCENT2)
 
-    # ── UI skeleton ───────────────────────────────────────────────────────────
     def _build_ui(self):
         self.drag_bar = tk.Frame(self.root, bg=SURFACE, height=44, cursor="fleur")
         self.drag_bar.pack(fill="x")
@@ -349,13 +334,13 @@ class MusicPlayer:
 
         gestures = [
             {
-                "name": "SWIPE\nR → L", "symbol": "✋←",
+                "name": "SWIPE\nTop→Left", "symbol": "↖✋",
                 "music": "Open / Close\nPlaylist",
                 "pdf":   "Open / Close\nPDF list",
                 "color": GUIDE_ACCENT,
             },
             {
-                "name": "SWIPE\nL → R", "symbol": "→✋",
+                "name": "SWIPE\nTop→Right", "symbol": "↗✋",
                 "music": "Switch to\nPDF panel",
                 "pdf":   "Switch to\nMusic panel",
                 "color": GUIDE_ACCENT,
@@ -373,22 +358,46 @@ class MusicPlayer:
                 "color": GUIDE_ACCENT2,
             },
             {
-                "name": "HOLD\nTOP", "symbol": "↑✋",
+                "name": "SWIPE\nCenter→Top", "symbol": "✋↑",
                 "music": "Volume ▲",
-                "pdf":   "Zoom in",
+                "pdf":   "Scroll Up",
                 "color": "#C084FC",
             },
             {
-                "name": "HOLD\nBOTTOM", "symbol": "✋↓",
+                "name": "SWIPE\nTop→Center", "symbol": "↓✋",
                 "music": "Volume ▼",
-                "pdf":   "Zoom out",
+                "pdf":   "Scroll Down",
                 "color": "#C084FC",
             },
             {
-                "name": "HOLD\nBOTH\nL+R", "symbol": "✋✋",
+                "name": "HOLD\nL + R", "symbol": "✋✋",
                 "music": "Stop / Play\nConfirm track",
                 "pdf":   "Zoom Reset\nConfirm PDF",
                 "color": "#E0AAFF",
+            },
+            {
+                "name": "SWIPE\nCenter→Right", "symbol": "✋→",
+                "music": "",
+                "pdf":   "Scroll Right",
+                "color": GUIDE_ACCENT,
+            },
+            {
+                "name": "SWIPE\nCenter→Left", "symbol": "←✋",
+                "music": "",
+                "pdf":   "Scroll Left",
+                "color": GUIDE_ACCENT,
+            },
+            {
+                "name": "HOLD\nTOP", "symbol": "↑",
+                "music": "",
+                "pdf":   "Zoom In",
+                "color": "#C084FC",
+            },
+            {
+                "name": "HOLD\nCENTER", "symbol": "●",
+                "music": "",
+                "pdf":   "Zoom Out",
+                "color": "#C084FC",
             },
         ]
 
@@ -429,7 +438,7 @@ class MusicPlayer:
         tk.Label(note, text="★  HOLD = 3 seconds",
                  font=("Helvetica", 9, "bold"),
                  bg="#110C1A", fg=GUIDE_ACCENT2, anchor="w", padx=10).pack(fill="x")
-        tk.Label(note, text="Top/Bottom sensors: vol/zoom  |  L/R: track/page",
+        tk.Label(note, text="Top sensor: swipe gestures  |  L/R/Center: hold & swipes",
                  font=("Helvetica", 9),
                  bg="#110C1A", fg=GUIDE_DIM, anchor="w", padx=10).pack(fill="x")
 
@@ -514,7 +523,6 @@ class MusicPlayer:
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(2, 0))
         self._build_playlist(parent)
 
-    # ── Playlist ──────────────────────────────────────────────────────────────
     def _build_playlist(self, parent):
         BODY_H, HEADER_H = 130, 34
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -644,7 +652,6 @@ class MusicPlayer:
             self._playlist_open = False
         self.play_music()
 
-    # ── Volume ────────────────────────────────────────────────────────────────
     def _on_volume_slider(self, value):
         self._volume = int(value)
         self._vol_readout.config(text=f"{self._volume}%")
@@ -666,11 +673,10 @@ class MusicPlayer:
         self._set_volume(self._volume - VOLUME_STEP)
         self._set_status(f"Volume: {self._volume}%")
 
-    # ── T-shape sensor panel ──────────────────────────────────────────────────
+    # ── Sensor panel — upside-down T layout ───────────────────────────────────
     # Layout:
-    #         [  TOP  ]
-    #   [LEFT] [STATUS] [RIGHT]
-    #       [BOTTOM]          ← below status, not shown as box but in strip
+    #        [ TOP ]
+    #   [LEFT] [CENTER] [RIGHT]
 
     def _build_sensor_panel(self, parent):
         panel = tk.Frame(parent, bg=SURFACE)
@@ -686,26 +692,23 @@ class MusicPlayer:
                  font=("Helvetica", 7, "bold"), bg=SURFACE,
                  fg="#4ADE80" if SENSORS_AVAILABLE else "#FACC15").pack(side="right")
 
-        # ── T-shape grid ──────────────────────────────────────────────────────
-        # Row 1: spacer | TOP | spacer
+        # Row 1: spacer | TOP | spacer  (upside-down T stem)
         row1 = tk.Frame(panel, bg=SURFACE)
         row1.pack(fill="x", padx=12, pady=(0, 2))
         row1.columnconfigure(0, weight=1)
         row1.columnconfigure(1, weight=1)
         row1.columnconfigure(2, weight=1)
 
-        spacer_l = tk.Frame(row1, bg=SURFACE)
-        spacer_l.grid(row=0, column=0, padx=2)
+        tk.Frame(row1, bg=SURFACE).grid(row=0, column=0, padx=2)
 
         self._top_box, self._top_label, self._top_dist = \
             self._make_sensor_box_grid(row1, "TOP", row=0, col=1)
 
-        spacer_r = tk.Frame(row1, bg=SURFACE)
-        spacer_r.grid(row=0, column=2, padx=2)
+        tk.Frame(row1, bg=SURFACE).grid(row=0, column=2, padx=2)
 
-        # Row 2: LEFT | (center connector + status strip) | RIGHT
+        # Row 2: LEFT | CENTER | RIGHT  (upside-down T crossbar)
         row2 = tk.Frame(panel, bg=SURFACE)
-        row2.pack(fill="x", padx=12, pady=(0, 2))
+        row2.pack(fill="x", padx=12, pady=(0, 4))
         row2.columnconfigure(0, weight=1)
         row2.columnconfigure(1, weight=1)
         row2.columnconfigure(2, weight=1)
@@ -713,33 +716,11 @@ class MusicPlayer:
         self._left_box, self._left_label, self._left_dist = \
             self._make_sensor_box_grid(row2, "LEFT", row=0, col=0)
 
-        # Center block — shows connector line and gesture text
-        center_blk = tk.Frame(row2, bg=SURFACE, height=54)
-        center_blk.grid(row=0, column=1, padx=2, sticky="nsew")
-        center_blk.pack_propagate(False)
-        # Vertical connector between TOP and BOTTOM
-        tk.Frame(center_blk, bg=BORDER, width=1).place(relx=0.5, y=0, relheight=1.0)
-        # Horizontal connector between LEFT and RIGHT
-        tk.Frame(center_blk, bg=BORDER, height=1).place(x=0, rely=0.5, relwidth=1.0)
+        self._center_box, self._center_label, self._center_dist = \
+            self._make_sensor_box_grid(row2, "CENTER", row=0, col=1)
 
         self._right_box, self._right_label, self._right_dist = \
             self._make_sensor_box_grid(row2, "RIGHT", row=0, col=2)
-
-        # Row 3: spacer | BOTTOM | spacer
-        row3 = tk.Frame(panel, bg=SURFACE)
-        row3.pack(fill="x", padx=12, pady=(0, 4))
-        row3.columnconfigure(0, weight=1)
-        row3.columnconfigure(1, weight=1)
-        row3.columnconfigure(2, weight=1)
-
-        spacer_bl = tk.Frame(row3, bg=SURFACE)
-        spacer_bl.grid(row=0, column=0, padx=2)
-
-        self._bottom_box, self._bottom_label, self._bottom_dist = \
-            self._make_sensor_box_grid(row3, "BOTTOM", row=0, col=1)
-
-        spacer_br = tk.Frame(row3, bg=SURFACE)
-        spacer_br.grid(row=0, column=2, padx=2)
 
         # Gesture status strip
         self._gesture_strip = tk.Label(panel, text="Waiting for gesture…",
@@ -748,33 +729,12 @@ class MusicPlayer:
         self._gesture_strip.pack(fill="x", padx=12, pady=(0, 8))
 
     def _make_sensor_box_grid(self, parent, label_text, row, col):
-        """Create a sensor box using grid geometry inside parent."""
         box = tk.Frame(parent, bg=SENSOR_OFF,
                        highlightbackground=SENSOR_BORDER_OFF, highlightthickness=1,
                        height=54)
         box.grid(row=row, column=col, padx=2, sticky="ew")
         box.pack_propagate(False)
 
-        inner = tk.Frame(box, bg=SENSOR_OFF)
-        inner.place(relx=0.5, rely=0.5, anchor="center")
-        icon  = tk.Label(inner, text="○", font=("Helvetica", 13), bg=SENSOR_OFF, fg=TEXT_SEC)
-        icon.pack()
-        lbl   = tk.Label(inner, text=label_text, font=("Helvetica", 6, "bold"),
-                         bg=SENSOR_OFF, fg=TEXT_SEC)
-        lbl.pack()
-        dist  = tk.Label(inner, text="—", font=("Helvetica", 6), bg=SENSOR_OFF, fg=TEXT_SEC)
-        dist.pack()
-        box._inner = inner; box._icon = icon; box._name = lbl; box._dist = dist
-        return box, lbl, dist
-
-    def _make_sensor_box(self, parent, label_text):
-        """Legacy pack-based sensor box (kept for compatibility)."""
-        box = tk.Frame(parent, bg=SENSOR_OFF,
-                       highlightbackground=SENSOR_BORDER_OFF, highlightthickness=1,
-                       width=120, height=54)
-        box.pack(side="left", fill="x", expand=True,
-                 padx=(0, 5) if label_text == "LEFT" else (5, 0))
-        box.pack_propagate(False)
         inner = tk.Frame(box, bg=SENSOR_OFF)
         inner.place(relx=0.5, rely=0.5, anchor="center")
         icon  = tk.Label(inner, text="○", font=("Helvetica", 13), bg=SENSOR_OFF, fg=TEXT_SEC)
@@ -806,7 +766,7 @@ class MusicPlayer:
             "left":   self._left_box,
             "right":  self._right_box,
             "top":    self._top_box,
-            "bottom": self._bottom_box,
+            "center": self._center_box,
         }
         box = box_map.get(which, self._left_box)
         self._set_sensor_state(box, state)
@@ -823,46 +783,62 @@ class MusicPlayer:
             lambda: self._gesture_strip.config(text="Waiting for gesture…", fg=TEXT_SEC))
 
     # ── Sensor loop ───────────────────────────────────────────────────────────
-    def _sensor_loop(self):
-        sensor_left, sensor_right, sensor_top, sensor_bottom = init_sensors()
+    # Sensors: LEFT, RIGHT, TOP, CENTER
+    # Swipes:
+    #   TOP → LEFT   = swipe_tl  (Open/Close list)
+    #   TOP → RIGHT  = swipe_tr  (Switch panel)
+    #   CENTER → TOP = swipe_ct  (Vol Up / Scroll Up)
+    #   TOP → CENTER = swipe_tc  (Vol Down / Scroll Down)
+    #   CENTER → RIGHT = swipe_cr (PDF scroll right)
+    #   CENTER → LEFT  = swipe_cl (PDF scroll left)
+    # Holds:
+    #   LEFT    = prev track/page
+    #   RIGHT   = next track/page
+    #   L+R     = stop/play, confirm, zoom reset
+    #   TOP     = zoom in (PDF only)
+    #   CENTER  = zoom out (PDF only)
 
-        swipe_stage = swipe_dir = None
+    def _sensor_loop(self):
+        sensor_left, sensor_right, sensor_top, sensor_center = init_sensors()
+
+        swipe_stage = 0
+        swipe_first = None
         swipe_start_time = 0
 
-        hold_left_start   = hold_right_start   = None
-        hold_top_start    = hold_bottom_start  = None
+        hold_left_start   = hold_right_start  = None
+        hold_top_start    = hold_center_start = None
         hold_both_start   = None
 
-        hold_left_fired   = hold_right_fired   = False
-        hold_top_fired    = hold_bottom_fired  = False
+        hold_left_fired   = hold_right_fired  = False
+        hold_top_fired    = hold_center_fired = False
         hold_both_fired   = False
 
-        vol_top_last_repeat    = vol_bottom_last_repeat = 0
+        vol_top_last_repeat    = vol_center_last_repeat = 0
 
         while self._gesture_running:
             left   = read_one(sensor_left)
             right  = read_one(sensor_right)
             top    = read_one(sensor_top)
-            bottom = read_one(sensor_bottom)
+            center = read_one(sensor_center)
 
             left_p   = left   != NO_READING and left   < PRESENT_MM
             right_p  = right  != NO_READING and right  < PRESENT_MM
             top_p    = top    != NO_READING and top    < PRESENT_MM
-            bottom_p = bottom != NO_READING and bottom < PRESENT_MM
+            center_p = center != NO_READING and center < PRESENT_MM
 
             dl = f"{left}mm"   if left   != NO_READING else "—"
             dr = f"{right}mm"  if right  != NO_READING else "—"
             dt = f"{top}mm"    if top    != NO_READING else "—"
-            db = f"{bottom}mm" if bottom != NO_READING else "—"
+            dc = f"{center}mm" if center != NO_READING else "—"
 
             now = time.monotonic()
 
             self.root.after(0, lambda lp=left_p,   d=dl: self._set_sensor_state(self._left_box,   "on" if lp else "off", d))
             self.root.after(0, lambda rp=right_p,  d=dr: self._set_sensor_state(self._right_box,  "on" if rp else "off", d))
             self.root.after(0, lambda tp=top_p,    d=dt: self._set_sensor_state(self._top_box,    "on" if tp else "off", d))
-            self.root.after(0, lambda bp=bottom_p, d=db: self._set_sensor_state(self._bottom_box, "on" if bp else "off", d))
+            self.root.after(0, lambda cp=center_p, d=dc: self._set_sensor_state(self._center_box, "on" if cp else "off", d))
 
-            # ── Hold BOTH L+R (stop/play, confirm, zoom reset) ────────────────
+            # ── Hold BOTH L+R ─────────────────────────────────────────────────
             if left_p and right_p:
                 if hold_both_start is None:
                     hold_both_start = now
@@ -874,7 +850,7 @@ class MusicPlayer:
             else:
                 hold_both_start = None; hold_both_fired = False
 
-            # ── Hold LEFT (prev track / prev page / list scroll up) ───────────
+            # ── Hold LEFT ─────────────────────────────────────────────────────
             if left_p and not right_p:
                 if hold_left_start is None:
                     hold_left_start = now
@@ -887,7 +863,7 @@ class MusicPlayer:
             else:
                 hold_left_start = None; hold_left_fired = False
 
-            # ── Hold RIGHT (next track / next page / list scroll down) ────────
+            # ── Hold RIGHT ────────────────────────────────────────────────────
             if right_p and not left_p:
                 if hold_right_start is None:
                     hold_right_start = now
@@ -900,94 +876,101 @@ class MusicPlayer:
             else:
                 hold_right_start = None; hold_right_fired = False
 
-            # ── Hold TOP (volume up / zoom in) ────────────────────────────────
-            if top_p and not bottom_p:
+            # ── Hold TOP (PDF zoom in only) ───────────────────────────────────
+            if top_p and not center_p and not left_p and not right_p:
                 if hold_top_start is None:
-                    hold_top_start = vol_top_last_repeat = now
+                    hold_top_start = now
                 if not hold_top_fired and now - hold_top_start >= HOLD_TIME:
                     hold_top_fired = True
-                    vol_top_last_repeat = now
                     self.root.after(0, lambda: self._flash_gesture(
-                        "top", "hold",
-                        "↑  HOLD TOP — Vol ▲  |  PDF: Zoom in", 800))
+                        "top", "hold", "↑  HOLD TOP — PDF: Zoom In", 800))
                     self.root.after(0, self._on_gesture_hold_top)
-                elif hold_top_fired:
-                    if now - vol_top_last_repeat >= VOLUME_HOLD_REPEAT_SEC:
-                        vol_top_last_repeat = now
-                        self.root.after(0, self._on_gesture_hold_top_repeat)
             else:
                 hold_top_start = None; hold_top_fired = False
 
-            # ── Hold BOTTOM (volume down / zoom out) ──────────────────────────
-            if bottom_p and not top_p:
-                if hold_bottom_start is None:
-                    hold_bottom_start = vol_bottom_last_repeat = now
-                if not hold_bottom_fired and now - hold_bottom_start >= HOLD_TIME:
-                    hold_bottom_fired = True
-                    vol_bottom_last_repeat = now
+            # ── Hold CENTER (PDF zoom out only) ───────────────────────────────
+            if center_p and not top_p and not left_p and not right_p:
+                if hold_center_start is None:
+                    hold_center_start = now
+                if not hold_center_fired and now - hold_center_start >= HOLD_TIME:
+                    hold_center_fired = True
                     self.root.after(0, lambda: self._flash_gesture(
-                        "bottom", "hold",
-                        "↓  HOLD BOTTOM — Vol ▼  |  PDF: Zoom out", 800))
-                    self.root.after(0, self._on_gesture_hold_bottom)
-                elif hold_bottom_fired:
-                    if now - vol_bottom_last_repeat >= VOLUME_HOLD_REPEAT_SEC:
-                        vol_bottom_last_repeat = now
-                        self.root.after(0, self._on_gesture_hold_bottom_repeat)
+                        "center", "hold", "●  HOLD CENTER — PDF: Zoom Out", 800))
+                    self.root.after(0, self._on_gesture_hold_center)
             else:
-                hold_bottom_start = None; hold_bottom_fired = False
+                hold_center_start = None; hold_center_fired = False
 
-            # ── Swipe detection (L↔R only) ────────────────────────────────────
-            if swipe_stage == 0 or swipe_stage is None:
-                swipe_stage = 0
-                if left_p and (not right_p or left < right - DOMINANCE_MM):
-                    swipe_stage = 1; swipe_dir = "LR"; swipe_start_time = now
-                elif right_p and (not left_p or right < left - DOMINANCE_MM):
-                    swipe_stage = 1; swipe_dir = "RL"; swipe_start_time = now
+            # ── Swipe detection ───────────────────────────────────────────────
+            # First sensor lit → wait for second sensor → fire gesture
+            if swipe_stage == 0:
+                if top_p and not left_p and not right_p and not center_p:
+                    swipe_stage = 1; swipe_first = "top"; swipe_start_time = now
+                elif center_p and not left_p and not right_p and not top_p:
+                    swipe_stage = 1; swipe_first = "center"; swipe_start_time = now
             elif swipe_stage == 1:
                 if now - swipe_start_time > SWIPE_TIMEOUT:
-                    swipe_stage = 0; swipe_dir = None
-                elif swipe_dir == "LR":
-                    if right_p and (not left_p or right < left - DOMINANCE_MM):
-                        swipe_stage = 0; swipe_dir = None
-                        self.root.after(0, lambda: self._flash_gesture(
-                            "right", "swipe", "→  SWIPE L→R — Switch Panel"))
-                        self.root.after(0, self._on_gesture_swipe_lr)
-                elif swipe_dir == "RL":
-                    if left_p and (not right_p or left < right - DOMINANCE_MM):
-                        swipe_stage = 0; swipe_dir = None
-                        self.root.after(0, lambda: self._flash_gesture(
-                            "left", "swipe", "←  SWIPE R→L — Open / Close List"))
-                        self.root.after(0, self._on_gesture_swipe_rl)
+                    swipe_stage = 0; swipe_first = None
+                else:
+                    if swipe_first == "top":
+                        if left_p and not right_p:
+                            swipe_stage = 0; swipe_first = None
+                            self.root.after(0, lambda: self._flash_gesture(
+                                "left", "swipe", "↖  SWIPE Top→Left — Open/Close List"))
+                            self.root.after(0, self._on_gesture_swipe_tl)
+                        elif right_p and not left_p:
+                            swipe_stage = 0; swipe_first = None
+                            self.root.after(0, lambda: self._flash_gesture(
+                                "right", "swipe", "↗  SWIPE Top→Right — Switch Panel"))
+                            self.root.after(0, self._on_gesture_swipe_tr)
+                        elif center_p:
+                            swipe_stage = 0; swipe_first = None
+                            self.root.after(0, lambda: self._flash_gesture(
+                                "center", "swipe", "↓  SWIPE Top→Center — Vol ▼ / Scroll ↓"))
+                            self.root.after(0, self._on_gesture_swipe_tc)
+                    elif swipe_first == "center":
+                        if top_p:
+                            swipe_stage = 0; swipe_first = None
+                            self.root.after(0, lambda: self._flash_gesture(
+                                "top", "swipe", "↑  SWIPE Center→Top — Vol ▲ / Scroll ↑"))
+                            self.root.after(0, self._on_gesture_swipe_ct)
+                        elif right_p and not left_p:
+                            swipe_stage = 0; swipe_first = None
+                            self.root.after(0, lambda: self._flash_gesture(
+                                "right", "swipe", "→  SWIPE Center→Right — PDF Scroll Right"))
+                            self.root.after(0, self._on_gesture_swipe_cr)
+                        elif left_p and not right_p:
+                            swipe_stage = 0; swipe_first = None
+                            self.root.after(0, lambda: self._flash_gesture(
+                                "left", "swipe", "←  SWIPE Center→Left — PDF Scroll Left"))
+                            self.root.after(0, self._on_gesture_swipe_cl)
 
             time.sleep(0.02)
 
     def _demo_sensor_loop(self):
         import random
         while self._gesture_running:
-            state = random.choice(["none", "left", "right", "top", "bottom", "both"])
+            state = random.choice(["none", "left", "right", "top", "center", "both"])
             lp = state in ("left", "both")
             rp = state in ("right", "both")
             tp = state == "top"
-            bp = state == "bottom"
+            cp = state == "center"
             dl = f"{random.randint(80, 280)}mm" if lp else "—"
             dr = f"{random.randint(80, 280)}mm" if rp else "—"
             dt = f"{random.randint(80, 280)}mm" if tp else "—"
-            db = f"{random.randint(80, 280)}mm" if bp else "—"
+            dc = f"{random.randint(80, 280)}mm" if cp else "—"
             self.root.after(0, lambda lp_=lp, d=dl:
                 self._set_sensor_state(self._left_box,   "on" if lp_ else "off", d))
             self.root.after(0, lambda rp_=rp, d=dr:
                 self._set_sensor_state(self._right_box,  "on" if rp_ else "off", d))
             self.root.after(0, lambda tp_=tp, d=dt:
                 self._set_sensor_state(self._top_box,    "on" if tp_ else "off", d))
-            self.root.after(0, lambda bp_=bp, d=db:
-                self._set_sensor_state(self._bottom_box, "on" if bp_ else "off", d))
+            self.root.after(0, lambda cp_=cp, d=dc:
+                self._set_sensor_state(self._center_box, "on" if cp_ else "off", d))
             time.sleep(1.2)
 
     # ── Gesture handlers ──────────────────────────────────────────────────────
-    def _on_gesture_swipe_lr(self):
-        self._toggle_active_panel()
-
-    def _on_gesture_swipe_rl(self):
+    def _on_gesture_swipe_tl(self):
+        """Top→Left: open/close playlist (music) or PDF list (pdf)."""
         if self._active_panel == "music":
             if self._playlist_open:
                 self._close_playlist()
@@ -996,8 +979,35 @@ class MusicPlayer:
         else:
             self._toggle_pdf_list()
 
+    def _on_gesture_swipe_tr(self):
+        """Top→Right: switch active panel."""
+        self._toggle_active_panel()
+
+    def _on_gesture_swipe_ct(self):
+        """Center→Top: volume up (music) or scroll PDF up."""
+        if self._active_panel == "pdf" and not self._pdf_list_open:
+            self._pdf_scroll_up()
+        else:
+            self.volume_up()
+
+    def _on_gesture_swipe_tc(self):
+        """Top→Center: volume down (music) or scroll PDF down."""
+        if self._active_panel == "pdf" and not self._pdf_list_open:
+            self._pdf_scroll_down()
+        else:
+            self.volume_down()
+
+    def _on_gesture_swipe_cr(self):
+        """Center→Right: PDF scroll right."""
+        if self._active_panel == "pdf":
+            self.pdf_canvas.xview_scroll(3, "units")
+
+    def _on_gesture_swipe_cl(self):
+        """Center→Left: PDF scroll left."""
+        if self._active_panel == "pdf":
+            self.pdf_canvas.xview_scroll(-3, "units")
+
     def _on_gesture_hold_left(self):
-        """Prev track / prev page / scroll list up."""
         if self._active_panel == "pdf":
             if self._pdf_list_open:
                 self._pdf_list_scroll_up()
@@ -1009,7 +1019,6 @@ class MusicPlayer:
             self._prev_track()
 
     def _on_gesture_hold_right(self):
-        """Next track / next page / scroll list down."""
         if self._active_panel == "pdf":
             if self._pdf_list_open:
                 self._pdf_list_scroll_down()
@@ -1021,32 +1030,14 @@ class MusicPlayer:
             self._next_track()
 
     def _on_gesture_hold_top(self):
-        """First fire: volume up OR zoom in."""
+        """Hold TOP: PDF zoom in only."""
         if self._active_panel == "pdf" and not self._pdf_list_open:
             self.zoom_in()
-        else:
-            self.volume_up()
 
-    def _on_gesture_hold_top_repeat(self):
-        """Repeat fires while top sensor held."""
-        if self._active_panel == "pdf" and not self._pdf_list_open:
-            self.zoom_in()
-        else:
-            self.volume_up()
-
-    def _on_gesture_hold_bottom(self):
-        """First fire: volume down OR zoom out."""
+    def _on_gesture_hold_center(self):
+        """Hold CENTER: PDF zoom out only."""
         if self._active_panel == "pdf" and not self._pdf_list_open:
             self.zoom_out()
-        else:
-            self.volume_down()
-
-    def _on_gesture_hold_bottom_repeat(self):
-        """Repeat fires while bottom sensor held."""
-        if self._active_panel == "pdf" and not self._pdf_list_open:
-            self.zoom_out()
-        else:
-            self.volume_down()
 
     def _on_gesture_hold_both(self):
         if self._active_panel == "pdf":
@@ -1064,6 +1055,15 @@ class MusicPlayer:
             else:
                 self.play_music()
 
+    # ── PDF scroll helpers ────────────────────────────────────────────────────
+    def _pdf_scroll_up(self):
+        if self.pdf_doc:
+            self.pdf_canvas.yview_scroll(-3, "units")
+
+    def _pdf_scroll_down(self):
+        if self.pdf_doc:
+            self.pdf_canvas.yview_scroll(3, "units")
+
     # ── Track navigation ──────────────────────────────────────────────────────
     def _prev_track(self):
         if PLAYLIST:
@@ -1079,7 +1079,6 @@ class MusicPlayer:
             self._load_track_by_idx(self._playlist_idx)
             self._set_status(f"Track: {PLAYLIST[self._playlist_idx][0]}")
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
     def _close_playlist(self):
         if self._playlist_open:
             self._playlist_body.pack_forget()
@@ -1234,7 +1233,6 @@ class MusicPlayer:
 
         self._draw_pdf_placeholder()
 
-    # ── PDF file list dropdown ─────────────────────────────────────────────────
     def _build_pdf_list(self, parent):
         BODY_H, HEADER_H = 100, 34
         outer = tk.Frame(parent, bg=PDF_BG, height=BODY_H + HEADER_H)
@@ -1386,7 +1384,6 @@ class MusicPlayer:
                                     text="Open a PDF to view it here",
                                     font=("Helvetica", 11), fill=TEXT_SEC, anchor="center")
 
-    # ── Drawing helpers ───────────────────────────────────────────────────────
     def _draw_vinyl(self, canvas):
         cx, cy, r = 60, 60, 52
         canvas.create_oval(cx-r, cy-r, cx+r, cy+r, fill="#1C1C20", outline=BORDER, width=2)
@@ -1415,7 +1412,6 @@ class MusicPlayer:
         canvas.bind("<Leave>", lambda e: canvas.itemconfig(1, fill=BTN_PLAY))
         return canvas
 
-    # ── Playback ──────────────────────────────────────────────────────────────
     def open_file(self):
         if not self._playlist_open:
             self._playlist_body.pack(fill="x")
@@ -1477,7 +1473,6 @@ class MusicPlayer:
         self.status_label.config(text=msg)
         self.root.after(3000, lambda: self.status_label.config(text="Ready"))
 
-    # ── PDF ───────────────────────────────────────────────────────────────────
     def open_pdf(self):
         path = filedialog.askopenfilename(
             filetypes=[("PDF Files", "*.pdf"), ("All files", "*.*")])
