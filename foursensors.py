@@ -58,10 +58,11 @@ SENSOR_HOLD       = "#C084FC"
 SENSOR_BORDER_OFF = "#2A2A35"
 SENSOR_BORDER_ON  = "#9B59D0"
 
+# Dimensions are computed at runtime from screen size — see MusicPlayer.__init__
 GUIDE_W  = 420
 PLAYER_W = 360
 PDF_W    = 1120
-WIN_H    = 1070
+WIN_H    = 980
 
 PDF_LIST = [
     ("Datasheet", "/home/agadkari/srdesign/PDFs/datasheet.pdf"),
@@ -173,8 +174,26 @@ class MusicPlayer:
     def __init__(self, root):
         self.root = root
         self.root.title("Delta Music Player")
-        self.root.geometry(f"{GUIDE_W + PLAYER_W + PDF_W}x{WIN_H}")
+
+        # ── Auto-fit to screen ─────────────────────────────────────────────
+        # Use a temporary hidden window to get accurate screen dimensions
+        self.root.withdraw()
+        self.root.update_idletasks()
+        scr_w = self.root.winfo_screenwidth()
+        scr_h = self.root.winfo_screenheight()
+
+        global GUIDE_W, PLAYER_W, PDF_W, WIN_H
+        WIN_H    = scr_h
+        # Fixed ratio: guide ~22%, player ~19%, pdf fills the rest
+        GUIDE_W  = int(scr_w * 0.22)
+        PLAYER_W = int(scr_w * 0.19)
+        PDF_W    = scr_w - GUIDE_W - PLAYER_W - 2  # -2 for the divider borders
+
+        self.root.geometry(f"{scr_w}x{scr_h}+0+0")
         self.root.resizable(False, False)
+        self.root.deiconify()
+        # ──────────────────────────────────────────────────────────────────
+
         self.root.configure(bg=BG)
 
         if PYGAME_AVAILABLE:
@@ -298,9 +317,8 @@ class MusicPlayer:
         left.pack_propagate(False)
         tk.Frame(content, bg=BORDER, width=1).pack(side="left", fill="y")
 
-        right = tk.Frame(content, bg=PDF_BG, width=PDF_W)
+        right = tk.Frame(content, bg=PDF_BG)
         right.pack(side="left", fill="both", expand=True)
-        right.pack_propagate(False)
 
         self._build_gesture_guide(guide)
         self._build_player(left)
