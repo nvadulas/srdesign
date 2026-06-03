@@ -369,13 +369,13 @@ class MusicPlayer:
                 "color": GUIDE_ACCENT2,
             },
             {
-                "name": "SWIPE\nCenter→Top", "symbol": "C✋↑T",
+                "name": "SWIPE\nCenter→Top", "symbol": "C ✋↑ T",
                 "music": "Volume ▲",
                 "pdf":   "Scroll Up",
                 "color": "#C084FC",
             },
             {
-                "name": "SWIPE\nTop→Center", "symbol": "T↓✋C",
+                "name": "SWIPE\nTop→Center", "symbol": "T ↓✋ C",
                 "music": "Volume ▼",
                 "pdf":   "Scroll Down",
                 "color": "#C084FC",
@@ -422,9 +422,9 @@ class MusicPlayer:
             left_block.pack_propagate(False)
             tk.Label(left_block, text=g["symbol"], font=("Helvetica", 15),
                      bg=row_bg, fg=g["color"], anchor="center").pack(pady=(10, 0))
-            tk.Label(left_block, text=g["name"], font=("Helvetica", 2, "bold"),
-                     bg=row_bg, fg=GUIDE_ACCENT2,
-                     justify="center", anchor="center").pack(pady=(3, 10))
+            #tk.Label(left_block, text=g["name"], font=("Helvetica", 2, "bold"),
+            #         bg=row_bg, fg=GUIDE_ACCENT2,
+            #         justify="center", anchor="center").pack(pady=(3, 10))
 
             tk.Frame(row_frame, bg=GUIDE_BORDER, width=1).pack(side="left", fill="y", pady=4)
 
