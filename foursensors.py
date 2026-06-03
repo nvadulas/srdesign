@@ -345,7 +345,7 @@ class MusicPlayer:
 
         gestures = [
             {
-                "name": "SWIPE\nTop→Left", "symbol": "L ←✋ T",
+                "name": "SWIPE\nTop→Left", "symbol": "T ✋→ L",
                 "music": "Open / Close\nPlaylist",
                 "pdf":   "Open / Close\nPDF list",
                 "color": GUIDE_ACCENT,
@@ -357,13 +357,13 @@ class MusicPlayer:
                 "color": GUIDE_ACCENT,
             },
             {
-                "name": "HOLD\nLEFT", "symbol": "✋|",
+                "name": "HOLD\nLEFT", "symbol": "HOLD ✋ L",
                 "music": "Prev track\nPlaylist: prev",
                 "pdf":   "Prev page\nPDFs: prev",
                 "color": GUIDE_ACCENT2,
             },
             {
-                "name": "HOLD\nRIGHT", "symbol": "|✋",
+                "name": "HOLD\nRIGHT", "symbol": "HOLD ✋ R",
                 "music": "Next track\nPlaylist: next",
                 "pdf":   "Next page\nPDFs: next",
                 "color": GUIDE_ACCENT2,
@@ -381,7 +381,7 @@ class MusicPlayer:
                 "color": "#C084FC",
             },
             {
-                "name": "HOLD\nL + R", "symbol": "✋ HOLD ✋",
+                "name": "HOLD\nL + R", "symbol": " HOLD L+R ✋",
                 "music": "Stop / Play\nConfirm track",
                 "pdf":   "Zoom Reset\nConfirm PDF",
                 "color": "#E0AAFF",
@@ -393,7 +393,7 @@ class MusicPlayer:
                 "color": GUIDE_ACCENT,
             },
             {
-                "name": "SWIPE\nCenter→Left", "symbol": "L ←✋ C",
+                "name": "SWIPE\nCenter→Left", "symbol": "C ✋→ L",
                 "music": "",
                 "pdf":   "Scroll Left",
                 "color": GUIDE_ACCENT,
@@ -446,12 +446,12 @@ class MusicPlayer:
 
         note = tk.Frame(parent, bg="#110C1A", pady=8)
         note.pack(fill="x", padx=12, pady=(10, 0))
-        tk.Label(note, text="★  HOLD = 3 seconds",
+        tk.Label(note, text="★  HOLD = 2 seconds",
                  font=("Helvetica", 11, "bold"),
                  bg="#110C1A", fg=GUIDE_ACCENT2, anchor="w", padx=10).pack(fill="x")
-        tk.Label(note, text="Top sensor: swipe gestures  |  L/R/Center: hold & swipes",
-                 font=("Helvetica", 11),
-                 bg="#110C1A", fg=GUIDE_DIM, anchor="w", padx=10).pack(fill="x")
+        #tk.Label(note, text="Top sensor: swipe gestures  |  L/R/Center: hold & swipes",
+        #         font=("Helvetica", 11),
+        #         bg="#110C1A", fg=GUIDE_DIM, anchor="w", padx=10).pack(fill="x")
 
         ctx = tk.Frame(parent, bg="#0E0A17", pady=8)
         ctx.pack(fill="x", padx=12, pady=(8, 0))
