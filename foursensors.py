@@ -345,13 +345,13 @@ class MusicPlayer:
 
         gestures = [
             {
-                "name": "SWIPE\nTop→Left", "symbol": "L←✋T",
+                "name": "SWIPE\nTop→Left", "symbol": "L ←✋ T",
                 "music": "Open / Close\nPlaylist",
                 "pdf":   "Open / Close\nPDF list",
                 "color": GUIDE_ACCENT,
             },
             {
-                "name": "SWIPE\nTop→Right", "symbol": "T✋→R",
+                "name": "SWIPE\nTop→Right", "symbol": "T ✋→ R",
                 "music": "Switch to\nPDF panel",
                 "pdf":   "Switch to\nMusic panel",
                 "color": GUIDE_ACCENT,
@@ -381,31 +381,31 @@ class MusicPlayer:
                 "color": "#C084FC",
             },
             {
-                "name": "HOLD\nL + R", "symbol": "✋HOLD✋",
+                "name": "HOLD\nL + R", "symbol": "✋ HOLD ✋",
                 "music": "Stop / Play\nConfirm track",
                 "pdf":   "Zoom Reset\nConfirm PDF",
                 "color": "#E0AAFF",
             },
             {
-                "name": "SWIPE\nCenter→Right", "symbol": "C✋→R",
+                "name": "SWIPE\nCenter→Right", "symbol": "C ✋→ R",
                 "music": "",
                 "pdf":   "Scroll Right",
                 "color": GUIDE_ACCENT,
             },
             {
-                "name": "SWIPE\nCenter→Left", "symbol": "L←✋C",
+                "name": "SWIPE\nCenter→Left", "symbol": "L ←✋ C",
                 "music": "",
                 "pdf":   "Scroll Left",
                 "color": GUIDE_ACCENT,
             },
             {
-                "name": "HOLD\nTOP", "symbol": "HOLD✋T",
+                "name": "HOLD\nTOP", "symbol": "HOLD ✋ T",
                 "music": "",
                 "pdf":   "Zoom In",
                 "color": "#C084FC",
             },
             {
-                "name": "HOLD\nCENTER", "symbol": "HOLD✋C",
+                "name": "HOLD\nCENTER", "symbol": "HOLD ✋ C",
                 "music": "",
                 "pdf":   "Zoom Out",
                 "color": "#C084FC",
@@ -420,7 +420,7 @@ class MusicPlayer:
             left_block = tk.Frame(row_frame, bg=row_bg, width=108)
             left_block.pack(side="left", fill="y")
             left_block.pack_propagate(False)
-            tk.Label(left_block, text=g["symbol"], font=("Helvetica", 20),
+            tk.Label(left_block, text=g["symbol"], font=("Helvetica", 12),
                      bg=row_bg, fg=g["color"], anchor="center").pack(pady=(10, 0))
             tk.Label(left_block, text=g["name"], font=("Helvetica", 11, "bold"),
                      bg=row_bg, fg=GUIDE_ACCENT2,
