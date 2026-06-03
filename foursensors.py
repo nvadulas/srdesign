@@ -345,13 +345,13 @@ class MusicPlayer:
 
         gestures = [
             {
-                "name": "SWIPE\nTop→Left", "symbol": "↖✋",
+                "name": "SWIPE\nTop→Left", "symbol": "L←✋T",
                 "music": "Open / Close\nPlaylist",
                 "pdf":   "Open / Close\nPDF list",
                 "color": GUIDE_ACCENT,
             },
             {
-                "name": "SWIPE\nTop→Right", "symbol": "↗✋",
+                "name": "SWIPE\nTop→Right", "symbol": "T✋→R",
                 "music": "Switch to\nPDF panel",
                 "pdf":   "Switch to\nMusic panel",
                 "color": GUIDE_ACCENT,
@@ -369,43 +369,43 @@ class MusicPlayer:
                 "color": GUIDE_ACCENT2,
             },
             {
-                "name": "SWIPE\nCenter→Top", "symbol": "✋↑",
+                "name": "SWIPE\nCenter→Top", "symbol": "C✋↑T",
                 "music": "Volume ▲",
                 "pdf":   "Scroll Up",
                 "color": "#C084FC",
             },
             {
-                "name": "SWIPE\nTop→Center", "symbol": "↓✋",
+                "name": "SWIPE\nTop→Center", "symbol": "T↓✋C",
                 "music": "Volume ▼",
                 "pdf":   "Scroll Down",
                 "color": "#C084FC",
             },
             {
-                "name": "HOLD\nL + R", "symbol": "✋✋",
+                "name": "HOLD\nL + R", "symbol": "✋HOLD✋",
                 "music": "Stop / Play\nConfirm track",
                 "pdf":   "Zoom Reset\nConfirm PDF",
                 "color": "#E0AAFF",
             },
             {
-                "name": "SWIPE\nCenter→Right", "symbol": "✋→",
+                "name": "SWIPE\nCenter→Right", "symbol": "C✋→R",
                 "music": "",
                 "pdf":   "Scroll Right",
                 "color": GUIDE_ACCENT,
             },
             {
-                "name": "SWIPE\nCenter→Left", "symbol": "←✋",
+                "name": "SWIPE\nCenter→Left", "symbol": "L←✋C",
                 "music": "",
                 "pdf":   "Scroll Left",
                 "color": GUIDE_ACCENT,
             },
             {
-                "name": "HOLD\nTOP", "symbol": "↑",
+                "name": "HOLD\nTOP", "symbol": "HOLD✋T",
                 "music": "",
                 "pdf":   "Zoom In",
                 "color": "#C084FC",
             },
             {
-                "name": "HOLD\nCENTER", "symbol": "●",
+                "name": "HOLD\nCENTER", "symbol": "HOLD✋C",
                 "music": "",
                 "pdf":   "Zoom Out",
                 "color": "#C084FC",
