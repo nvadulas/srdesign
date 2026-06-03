@@ -420,9 +420,9 @@ class MusicPlayer:
             left_block = tk.Frame(row_frame, bg=row_bg, width=108)
             left_block.pack(side="left", fill="y")
             left_block.pack_propagate(False)
-            tk.Label(left_block, text=g["symbol"], font=("Helvetica", 12),
+            tk.Label(left_block, text=g["symbol"], font=("Helvetica", 15),
                      bg=row_bg, fg=g["color"], anchor="center").pack(pady=(10, 0))
-            tk.Label(left_block, text=g["name"], font=("Helvetica", 11, "bold"),
+            tk.Label(left_block, text=g["name"], font=("Helvetica", 2, "bold"),
                      bg=row_bg, fg=GUIDE_ACCENT2,
                      justify="center", anchor="center").pack(pady=(3, 10))
 
