@@ -58,7 +58,6 @@ SENSOR_HOLD       = "#C084FC"
 SENSOR_BORDER_OFF = "#2A2A35"
 SENSOR_BORDER_ON  = "#9B59D0"
 
-# Dimensions are computed at runtime from screen size — see MusicPlayer.__init__
 GUIDE_W  = 420
 PLAYER_W = 360
 PDF_W    = 1120
@@ -175,8 +174,6 @@ class MusicPlayer:
         self.root = root
         self.root.title("Delta Music Player")
 
-        # ── Auto-fit to screen ─────────────────────────────────────────────
-        # Use a temporary hidden window to get accurate screen dimensions
         self.root.withdraw()
         self.root.update_idletasks()
         scr_w = self.root.winfo_screenwidth()
@@ -194,7 +191,6 @@ class MusicPlayer:
         self.root.overrideredirect(True)              # remove OS title bar
         self.root.wm_attributes("-fullscreen", True)  # cover taskbar completely
         self.root.deiconify()
-        # ──────────────────────────────────────────────────────────────────
 
         self.root.configure(bg=BG)
 
@@ -253,8 +249,6 @@ class MusicPlayer:
         self.root.destroy()
 
     def _remove_title_bar(self):
-        # overrideredirect + fullscreen already applied in __init__
-        # No drag needed — window is pinned fullscreen
         pass
 
     def _start_drag(self, e): pass
@@ -317,7 +311,7 @@ class MusicPlayer:
         self._build_player(left)
         self._build_pdf_panel(right)
 
-    # ── Gesture guide panel ───────────────────────────────────────────────────
+    # Gesture guide panel
     def _build_gesture_guide(self, parent):
         hdr = tk.Frame(parent, bg=GUIDE_SURF, height=60)
         hdr.pack(fill="x")
@@ -474,7 +468,7 @@ class MusicPlayer:
         tk.Label(pill, text=status_text, font=("Helvetica", 11, "bold"),
                  bg=GUIDE_SURF, fg=status_color, pady=10, anchor="center").pack(fill="x")
 
-    # ── Player panel ──────────────────────────────────────────────────────────
+    # Player panel
     def _build_player(self, parent):
         self._build_sensor_panel(parent)
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", side="bottom")
@@ -684,10 +678,7 @@ class MusicPlayer:
         self._set_volume(self._volume - VOLUME_STEP)
         self._set_status(f"Volume: {self._volume}%")
 
-    # ── Sensor panel — upside-down T layout ───────────────────────────────────
-    # Layout:
-    #        [ TOP ]
-    #   [LEFT] [CENTER] [RIGHT]
+    # Sensor panel — upside-down T layout 
 
     def _build_sensor_panel(self, parent):
         panel = tk.Frame(parent, bg=SURFACE)
@@ -849,7 +840,7 @@ class MusicPlayer:
             self.root.after(0, lambda tp=top_p,    d=dt: self._set_sensor_state(self._top_box,    "on" if tp else "off", d))
             self.root.after(0, lambda cp=center_p, d=dc: self._set_sensor_state(self._center_box, "on" if cp else "off", d))
 
-            # ── Hold BOTH L+R ─────────────────────────────────────────────────
+            # Hold BOTH L+R 
             if left_p and right_p:
                 if hold_both_start is None:
                     hold_both_start = now
@@ -861,7 +852,7 @@ class MusicPlayer:
             else:
                 hold_both_start = None; hold_both_fired = False
 
-            # ── Hold LEFT ─────────────────────────────────────────────────────
+            # Hold LEFT 
             if left_p and not right_p:
                 if hold_left_start is None:
                     hold_left_start = now
@@ -874,7 +865,7 @@ class MusicPlayer:
             else:
                 hold_left_start = None; hold_left_fired = False
 
-            # ── Hold RIGHT ────────────────────────────────────────────────────
+            # Hold RIGHT 
             if right_p and not left_p:
                 if hold_right_start is None:
                     hold_right_start = now
@@ -887,7 +878,7 @@ class MusicPlayer:
             else:
                 hold_right_start = None; hold_right_fired = False
 
-            # ── Hold TOP (PDF zoom in only) ───────────────────────────────────
+            # Hold TOP (PDF zoom in only) 
             if top_p and not center_p and not left_p and not right_p:
                 if hold_top_start is None:
                     hold_top_start = now
@@ -899,7 +890,7 @@ class MusicPlayer:
             else:
                 hold_top_start = None; hold_top_fired = False
 
-            # ── Hold CENTER (PDF zoom out only) ───────────────────────────────
+            # Hold CENTER (PDF zoom out only) 
             if center_p and not top_p and not left_p and not right_p:
                 if hold_center_start is None:
                     hold_center_start = now
@@ -911,8 +902,8 @@ class MusicPlayer:
             else:
                 hold_center_start = None; hold_center_fired = False
 
-            # ── Swipe detection ───────────────────────────────────────────────
-            # First sensor lit → wait for second sensor → fire gesture
+            # Swipe detection 
+            # First sensor lit -> wait for second sensor -> fire gesture
             if swipe_stage == 0:
                 if top_p and not left_p and not right_p and not center_p:
                     swipe_stage = 1; swipe_first = "top"; swipe_start_time = now
@@ -979,7 +970,7 @@ class MusicPlayer:
                 self._set_sensor_state(self._center_box, "on" if cp_ else "off", d))
             time.sleep(1.2)
 
-    # ── Gesture handlers ──────────────────────────────────────────────────────
+    # Gesture handlers
     def _on_gesture_swipe_tl(self):
         """Top→Left: open/close playlist (music) or PDF list (pdf)."""
         if self._active_panel == "music":
@@ -1066,7 +1057,7 @@ class MusicPlayer:
             else:
                 self.play_music()
 
-    # ── PDF scroll helpers ────────────────────────────────────────────────────
+    # PDF scroll helpers 
     def _pdf_scroll_up(self):
         if self.pdf_doc:
             self.pdf_canvas.yview_scroll(-3, "units")
@@ -1075,7 +1066,7 @@ class MusicPlayer:
         if self.pdf_doc:
             self.pdf_canvas.yview_scroll(3, "units")
 
-    # ── Track navigation ──────────────────────────────────────────────────────
+    # Track navigation 
     def _prev_track(self):
         if PLAYLIST:
             self._playlist_idx = (self._playlist_idx - 1) % len(PLAYLIST)
@@ -1145,7 +1136,7 @@ class MusicPlayer:
             frac = idx / len(self._pdf_row_widgets)
             self._pdf_list_canvas.yview_moveto(max(0, frac - 0.1))
 
-    # ── PDF panel ─────────────────────────────────────────────────────────────
+    # PDF panel 
     def _build_pdf_panel(self, parent):
         header = tk.Frame(parent, bg=PDF_SURF, height=44)
         header.pack(fill="x")
